@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { AppState } from 'react-native';
-import HomeScreen from './src/screens/HomeScreen';
+import HomeScreen from './src/screens/Homescreen.js';
 
 export default function App() {
   useEffect(() => {
@@ -21,3 +21,4 @@ export default function App() {
 
   return <HomeScreen />;
 }
+

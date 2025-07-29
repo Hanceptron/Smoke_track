@@ -1,39 +1,40 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import {STORAGE_KEYS, DEFAULT_WEEKLY_GOAL} from '../utils/constants';
+import { STORAGE_KEYS, DEFAULT_WEEKLY_GOAL } from '../utils/constants';
 
 class StorageService {
-    // Smoking Data Methods
-async getSmokingData() {
+  // Smoking data methods
+  async getSmokingData() {
     try {
-        const data = await AsyncStorage.getItem(STORAGE_KEYS.SMOKING_DATA);
-        return data ? JSON.parse(data) : {};
+      const data = await AsyncStorage.getItem(STORAGE_KEYS.SMOKING_DATA);
+      return data ? JSON.parse(data) : {};
     } catch (error) {
-        console.error('Error loading smoking data', error);
-    return {};
+      console.error('Error loading smoking data:', error);
+      return {};
     }
-}
+  }
 
-async saveSmokingData(data) {
+  async saveSmokingData(data) {
     try {
-        await AsyncStorage.setItem(STORAGE_KEYS.SMOKING_DATA, JSON.stringify(data));
+      await AsyncStorage.setItem(STORAGE_KEYS.SMOKING_DATA, JSON.stringify(data));
     } catch (error) {
-        console.error('Error saving smoking data', error);
+      console.error('Error saving smoking data:', error);
     }
-}
+  }
 
-async incrementTodayCount(date) {
+  async incrementTodayCount(date) {
     try {
-        const data = await this.getSmokingData();
-        data[date] = (date[date] || 0) +1; 
-        await this.updateSmokingData(data);
-        await this.updateLastSmokeTime();
-        return data[date];
+      const data = await this.getSmokingData();
+      data[date] = (data[date] || 0) + 1;
+      await this.saveSmokingData(data);
+      await this.updateLastSmokeTime();
+      return data[date];
     } catch (error) {
-        console.error('Error incrementing count:', error);
+      console.error('Error incrementing count:', error);
+      return 0;
     }
-}
+  }
 
-// Goal methods
+  // Goal methods
   async getWeeklyGoal() {
     try {
       const goal = await AsyncStorage.getItem(STORAGE_KEYS.WEEKLY_GOAL);

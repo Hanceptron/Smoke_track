@@ -46,7 +46,3 @@ class HapticService {
 }
 
 export default new HapticService();
-
-// babel.config.js
-presets: ['babel-preset-expo'],
-plugins: ['react-native-reanimated/plugin'],
