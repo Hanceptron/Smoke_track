@@ -16,6 +16,10 @@ const GoalSetting = ({ visible, currentGoal, onSave, onCancel, theme }) => {
   const [tempGoal, setTempGoal] = useState(currentGoal.toString());
 
   const handleSave = () => {
+    if (tempGoal.trim() === '') {
+      // Or show an error message to the user
+      return;
+    }
     const goal = parseInt(tempGoal, 10);
     if (!isNaN(goal) && goal > 0) {
       HapticService.success();

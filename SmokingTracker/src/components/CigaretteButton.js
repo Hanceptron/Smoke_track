@@ -147,7 +147,11 @@ const CigaretteButton = ({ onPress, theme }) => {
           stroke={theme.text.tertiary}
           strokeWidth="2"
           opacity={smokeOpacity}
-          transform={`translate(0, ${smokeY}) scale(${smokeScale}, ${smokeScale})`}
+          transform={[
+            { translateY: smokeY },
+            { scaleX: smokeScale },
+            { scaleY: smokeScale }
+          ]}
         />
       </Svg>
     </TouchableOpacity>

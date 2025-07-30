@@ -48,50 +48,76 @@ const HomeScreen = () => {
   }, [smokingData, weeklyGoal]);
 
   const loadData = async () => {
-    const [data, goal, isDark, lastTime] = await Promise.all([
-      StorageService.getSmokingData(),
-      StorageService.getWeeklyGoal(),
-      StorageService.getThemeMode(),
-      StorageService.getLastSmokeTime(),
-    ]);
-    
-    setSmokingData(data);
-    setWeeklyGoal(goal);
-    setIsDarkMode(isDark);
-    setLastSmokeTime(lastTime);
+    try {
+      const [data, goal, isDark, lastTime] = await Promise.all([
+        StorageService.getSmokingData(),
+        StorageService.getWeeklyGoal(),
+        StorageService.getThemeMode(),
+        StorageService.getLastSmokeTime(),
+      ]);
+      
+      setSmokingData(data || {});
+      setWeeklyGoal(goal || DEFAULT_WEEKLY_GOAL);
+      setIsDarkMode(isDark || false);
+      setLastSmokeTime(lastTime);
+    } catch (error) {
+      console.error('Error loading data:', error);
+      // Reset to defaults on error
+      setSmokingData({});
+      setWeeklyGoal(DEFAULT_WEEKLY_GOAL);
+      setIsDarkMode(false);
+      setLastSmokeTime(null);
+    }
   };
 
   const handleLogCigarette = async () => {
-    HapticService.medium();
-    const today = getToday();
-    const newCount = await StorageService.incrementTodayCount(today);
-    
-    setSmokingData(prev => ({
-      ...prev,
-      [today]: newCount,
-    }));
-    
-    const newLastTime = new Date().toISOString();
-    setLastSmokeTime(newLastTime);
+    try {
+      HapticService.medium();
+      const today = getToday();
+      const newCount = await StorageService.incrementTodayCount(today);
+      
+      setSmokingData(prev => ({
+        ...prev,
+        [today]: newCount,
+      }));
+      
+      const newLastTime = new Date().toISOString();
+      setLastSmokeTime(newLastTime);
+    } catch (error) {
+      console.error('Error logging cigarette:', error);
+    }
   };
 
   const handleSaveGoal = async (newGoal) => {
-    await StorageService.saveWeeklyGoal(newGoal);
-    setWeeklyGoal(newGoal);
-    setShowGoalModal(false);
+    try {
+      await StorageService.saveWeeklyGoal(newGoal);
+      setWeeklyGoal(newGoal);
+      setShowGoalModal(false);
+    } catch (error) {
+      console.error('Error saving goal:', error);
+    }
   };
 
   const toggleTheme = async () => {
-    HapticService.selection();
-    const newMode = !isDarkMode;
-    setIsDarkMode(newMode);
-    await StorageService.saveThemeMode(newMode);
+    try {
+      HapticService.selection();
+      const newMode = !isDarkMode;
+      setIsDarkMode(newMode);
+      await StorageService.saveThemeMode(newMode);
+    } catch (error) {
+      console.error('Error toggling theme:', error);
+    }
   };
 
   const onRefresh = async () => {
-    setRefreshing(true);
-    await loadData();
-    setRefreshing(false);
+    try {
+      setRefreshing(true);
+      await loadData();
+    } catch (error) {
+      console.error('Error refreshing:', error);
+    } finally {
+      setRefreshing(false);
+    }
   };
 
   const getTrendIcon = () => {

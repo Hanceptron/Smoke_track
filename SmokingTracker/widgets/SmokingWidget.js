@@ -7,8 +7,8 @@ import {
   Animated,
 } from 'react-native';
 import Svg, { Rect, Circle, Path, Defs, RadialGradient, Stop } from 'react-native-svg';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { STORAGE_KEYS, ANIMATION_DURATION, DEFAULT_WEEKLY_GOAL } from '../src/utils/constants';
+import StorageService from '../src/services/StorageService';
+import { ANIMATION_DURATION } from '../src/utils/constants';
 import { formatDate } from '../src/utils/dateHelpers';
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
@@ -28,11 +28,8 @@ const SmokingWidget = () => {
   const loadWidgetData = async () => {
     try {
       const today = formatDate(new Date());
-      const data = await AsyncStorage.getItem(STORAGE_KEYS.SMOKING_DATA);
-      const goal = await AsyncStorage.getItem(STORAGE_KEYS.WEEKLY_GOAL);
-      
-      const smokingData = data ? JSON.parse(data) : {};
-      const weeklyGoal = goal ? parseInt(goal, 10) : DEFAULT_WEEKLY_GOAL;
+      const smokingData = await StorageService.getSmokingData();
+      const weeklyGoal = await StorageService.getWeeklyGoal();
       
       // Calculate today's count
       const count = smokingData[today] || 0;
@@ -75,13 +72,8 @@ const SmokingWidget = () => {
     // Update count
     const today = formatDate(new Date());
     try {
-      const data = await AsyncStorage.getItem(STORAGE_KEYS.SMOKING_DATA);
-      const smokingData = data ? JSON.parse(data) : {};
-      smokingData[today] = (smokingData[today] || 0) + 1;
-      await AsyncStorage.setItem(STORAGE_KEYS.SMOKING_DATA, JSON.stringify(smokingData));
-      await AsyncStorage.setItem(STORAGE_KEYS.LAST_SMOKE_TIME, new Date().toISOString());
-      
-      setTodayCount(smokingData[today]);
+      const newCount = await StorageService.incrementTodayCount(today);
+      setTodayCount(newCount);
       loadWidgetData(); // Reload to update progress
     } catch (error) {
       console.error('Error updating widget data:', error);
