@@ -13,7 +13,7 @@ import { BlurView } from 'expo-blur';
 import HapticService from '../services/HapticService';
 
 const GoalSetting = ({ visible, currentGoal, onSave, onCancel, theme }) => {
-  const [tempGoal, setTempGoal] = useState(currentGoal.toString());
+  const [tempGoal, setTempGoal] = useState((currentGoal ?? 10).toString());
 
   const handleSave = () => {
     if (tempGoal.trim() === '') {
@@ -180,3 +180,26 @@ const styles = StyleSheet.create({
 });
 
 export default GoalSetting;
+
+export const getShadowStyle = (theme, type, intensity = 1) => {
+  switch (type) {
+    case 'convex':
+      return {
+        shadowColor: theme.shadow,
+        shadowOffset: { width: 0, height: 2 * intensity },
+        shadowOpacity: 0.1 * intensity,
+        shadowRadius: 4 * intensity,
+        elevation: 2 * intensity,
+      };
+    case 'concave':
+      return {
+        shadowColor: theme.shadow,
+        shadowOffset: { width: 0, height: -1 * intensity },
+        shadowOpacity: 0.08 * intensity,
+        shadowRadius: 3 * intensity,
+        elevation: 1 * intensity,
+      };
+    default:
+      return {};
+  }
+};

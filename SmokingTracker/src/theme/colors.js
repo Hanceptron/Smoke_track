@@ -35,3 +35,37 @@ export const colors = {
 };
 
 export const getTheme = (isDark = false) => isDark ? colors.dark : colors.light;
+
+export const getGradientColors = (theme, type) => {
+  switch (type) {
+    case 'button':
+      return [theme.accent, theme.success];
+    case 'surface':
+      return [theme.card, theme.background];
+    default:
+      return [theme.text.primary, theme.text.secondary];
+  }
+}
+
+export const getShadowStyle = (theme, type, intensity = 1) => {
+  switch (type) {
+    case 'convex':
+      return {
+        shadowColor: theme.shadow,
+        shadowOffset: { width: 0, height: 2 * intensity },
+        shadowOpacity: 0.1 * intensity,
+        shadowRadius: 4 * intensity,
+        elevation: 2 * intensity,
+      };
+    case 'concave':
+      return { 
+        shadowColor: theme.shadow,
+        shadowOffset: { width: 0, height: -1 * intensity },
+        shadowOpacity: 0.08 * intensity,
+        shadowRadius: 3 * intensity,
+        elevation: 1 * intensity,
+      };
+    default:
+      return {};
+  }
+};

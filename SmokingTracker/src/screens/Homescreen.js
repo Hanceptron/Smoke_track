@@ -18,7 +18,7 @@ import CigaretteButton from '../components/CigaretteButton';
 import WeeklyChart from '../components/WeeklyChart';
 import StatCard from '../components/StatCard';
 import TimeSinceLastSmoke from '../components/TimeSinceLastSmoke';
-import DailyLimitSetting from '../components/GoalSetting';
+import GoalSetting from '../components/GoalSetting';
 import { getToday, getWeeklyStats } from '../utils/dateHelpers';
 import { getTheme, getShadowStyle, getGradientColors } from '../theme/colors';
 
@@ -382,7 +382,7 @@ const HomeScreen = () => {
           </Animated.ScrollView>
 
           {/* Daily Limit Setting Modal */}
-          <DailyLimitSetting
+          <GoalSetting
             visible={showLimitModal}
             currentLimit={dailyLimit}
             onSave={handleSaveLimit}

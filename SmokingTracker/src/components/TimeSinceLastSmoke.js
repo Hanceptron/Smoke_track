@@ -1,6 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { View, Text, StyleSheet, Animated } from 'react-native';
-import { formatTimeSince } from '../utils/dateHelpers';
 
 const TimeSinceLastSmoke = ({ lastSmokeTime, theme }) => {
   const [timeValue, setTimeValue] = useState('');
