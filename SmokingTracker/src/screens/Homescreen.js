@@ -191,17 +191,14 @@ const HomeScreen = () => {
 
   const headerOpacity = scrollY.interpolate({
     inputRange: [0, 100],
-    outputRange: [1, 0.8],
+    outputRange: [1, 0.9],
     extrapolate: 'clamp',
   });
 
   return (
     <>
       <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
-      <LinearGradient
-        colors={isDarkMode ? ['#1A1B26', '#16171F'] : ['#E8EAF0', '#DFE1E7']}
-        style={styles.container}
-      >
+      <View style={[styles.container, { backgroundColor: theme.background }]}>
         <SafeAreaView style={styles.safeArea}>
           <Animated.ScrollView
             showsVerticalScrollIndicator={false}
@@ -225,25 +222,46 @@ const HomeScreen = () => {
                 <Text style={[styles.headerTitle, { color: theme.text.primary }]}>
                   Quit Tracker
                 </Text>
-                <Text style={[styles.headerSubtitle, { color: theme.text.secondary }]}>
-                  Reduce your daily intake
-                </Text>
+                {/* Daily Status */}
+                <View style={styles.dailyStatus}>
+                  <Text style={[styles.dailyStatusText, { 
+                    color: remainingToday === 0 ? theme.danger : theme.text.secondary 
+                  }]}>
+                    {remainingToday === 0 
+                      ? 'Daily limit reached' 
+                      : `${remainingToday} remaining today`}
+                  </Text>
+                </View>
               </View>
               <TouchableOpacity onPress={toggleTheme} style={styles.themeButton}>
-                <LinearGradient
-                  colors={getGradientColors(theme, 'button')}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={styles.themeButtonGradient}
-                >
-                  <Text style={styles.themeIcon}>
-                    {isDarkMode ? '☀️' : '🌙'}
+                <View style={[
+                  styles.themeButtonInner,
+                  { backgroundColor: theme.shadow.dark, opacity: 0.1 }
+                ]}>
+                  <Text style={[styles.themeIcon, { opacity: 0.6 }]}>
+                    {isDarkMode ? '◐' : '◑'}
                   </Text>
-                </LinearGradient>
+                </View>
               </TouchableOpacity>
             </Animated.View>
 
-            {/* Today's Count - Minimalistic */}
+            {/* Header Progress Bar */}
+            <View style={[styles.headerProgress, { backgroundColor: theme.shadow.dark, opacity: 0.1 }]}>
+              <Animated.View
+                style={[
+                  styles.headerProgressFill,
+                  {
+                    width: progressAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: ['0%', '100%'],
+                    }),
+                    backgroundColor: getProgressBarColor(),
+                  }
+                ]}
+              />
+            </View>
+
+            {/* Today's Count - Enhanced */}
             <Animated.View style={[
               styles.todaySection, 
               { 
@@ -256,21 +274,21 @@ const HomeScreen = () => {
                 }]
               }
             ]}>
-              <Text style={[styles.todayText, { color: theme.text.secondary }]}>
-                Today
+              <Text style={[styles.todayLabel, { color: theme.text.secondary }]}>
+                TODAY
               </Text>
               <View style={styles.todayCountRow}>
-                <Animated.Text style={[styles.todayNumber, { color: theme.text.primary }]}>
+                <Animated.Text style={[styles.todayNumber, { color: theme.accent }]}>
                   {displayCount}
                 </Animated.Text>
-                <Text style={[styles.todayUnit, { color: theme.text.tertiary }]}>
-                  cigarettes
-                </Text>
               </View>
+              <Text style={[styles.todayUnit, { color: theme.text.primary }]}>
+                CIGARETTES
+              </Text>
               
               {/* Reverse Progress Bar */}
               <View style={styles.progressContainer}>
-                <View style={[styles.progressBarBg, { backgroundColor: theme.shadow.dark, opacity: 0.2 }]}>
+                <View style={[styles.progressBarBg, { backgroundColor: theme.shadow.dark, opacity: 0.15 }]}>
                   <Animated.View 
                     style={[
                       styles.progressBarFill,
@@ -291,92 +309,80 @@ const HomeScreen = () => {
             </Animated.View>
 
             {/* Cigarette Button */}
-            <CigaretteButton onPress={handleLogCigarette} theme={theme} />
+            <CigaretteButton 
+              onPress={handleLogCigarette} 
+              theme={theme}
+              disabled={todayCount >= dailyLimit}
+            />
 
             {/* Time Since Last */}
             <TimeSinceLastSmoke lastSmokeTime={lastSmokeTime} theme={theme} />
 
-            {/* Stats Row */}
-            <View style={styles.statsRow}>
-              <StatCard
-                title="Today's Limit"
-                value={remainingToday}
-                subtitle="left to smoke"
-                highlight={remainingToday === 0}
-                theme={theme}
-              />
-              <View style={styles.statSpacer} />
-              <StatCard
-                title="This Week"
-                value={weeklyStats.average}
-                subtitle="daily average"
-                theme={theme}
-              />
+            {/* Stats Row - No cards, just text */}
+            <View style={styles.statsContainer}>
+              <View style={styles.statItem}>
+                <Text style={[styles.statLabel, { color: theme.text.tertiary }]}>
+                  TODAY'S LIMIT
+                </Text>
+                <Text style={[styles.statValue, { color: theme.text.primary }]}>
+                  {remainingToday}
+                </Text>
+                <Text style={[styles.statSubtext, { color: theme.text.secondary }]}>
+                  left to smoke
+                </Text>
+              </View>
+
+              <View style={styles.statDivider}>
+                <View style={[styles.dividerLine, { backgroundColor: theme.text.tertiary, opacity: 0.2 }]} />
+              </View>
+
+              <View style={styles.statItem}>
+                <Text style={[styles.statLabel, { color: theme.text.tertiary }]}>
+                  THIS WEEK
+                </Text>
+                <Text style={[styles.statValue, { color: theme.text.primary }]}>
+                  {weeklyStats.average}
+                </Text>
+                <Text style={[styles.statSubtext, { color: theme.text.secondary }]}>
+                  daily average
+                </Text>
+              </View>
             </View>
 
-            {/* Daily Limit Setting Card */}
+            {/* Daily Limit Setting - Minimalistic */}
             <TouchableOpacity
               onPress={() => {
                 HapticService.light();
                 setShowLimitModal(true);
               }}
-              activeOpacity={0.8}
-              style={[styles.limitCard, getShadowStyle(theme, 'convex', 0.8)]}
+              activeOpacity={0.7}
+              style={styles.limitButton}
             >
-              <LinearGradient
-                colors={getGradientColors(theme, 'surface')}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.limitGradient}
-              >
-                <View style={styles.limitContent}>
-                  <Text style={[styles.limitTitle, { color: theme.text.secondary }]}>
+              <View style={styles.limitContent}>
+                <View>
+                  <Text style={[styles.limitLabel, { color: theme.text.tertiary }]}>
                     DAILY LIMIT
                   </Text>
-                  <Text style={[styles.limitValue, { color: theme.accent }]}>
+                  <Text style={[styles.limitValue, { color: theme.text.primary }]}>
                     {dailyLimit}
                   </Text>
-                  <Text style={[styles.limitEdit, { color: theme.text.tertiary }]}>
-                    tap to change
+                </View>
+                <View style={[styles.limitArrow, { opacity: 0.3 }]}>
+                  <Text style={[styles.limitArrowText, { color: theme.text.secondary }]}>
+                    ›
                   </Text>
                 </View>
-                <View style={styles.limitIcon}>
-                  <Text style={styles.limitEmoji}>🎯</Text>
-                </View>
-              </LinearGradient>
+              </View>
+              <View style={[styles.limitUnderline, { backgroundColor: theme.accent, opacity: 0.3 }]} />
             </TouchableOpacity>
 
             {/* Weekly Chart */}
-            <WeeklyChart smokingData={smokingData} theme={theme} />
-
-            {/* Motivation Card */}
-            {todayCount >= dailyLimit && (
-              <Animated.View style={[
-                styles.warningCard,
-                getShadowStyle(theme, 'concave', 0.6),
-                {
-                  opacity: fadeAnim,
-                  transform: [{
-                    scale: fadeAnim.interpolate({
-                      inputRange: [0, 1],
-                      outputRange: [0.9, 1],
-                    })
-                  }]
-                }
-              ]}>
-                <LinearGradient
-                  colors={[theme.danger, '#D63031']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={styles.warningGradient}
-                >
-                  <Text style={styles.warningTitle}>Daily Limit Reached</Text>
-                  <Text style={styles.warningText}>
-                    Consider stopping for today. Tomorrow is a new opportunity!
-                  </Text>
-                </LinearGradient>
-              </Animated.View>
-            )}
+            <View style={styles.chartSection}>
+              <Text style={[styles.chartTitle, { color: theme.text.primary }]}>
+                Weekly Overview
+              </Text>
+              <WeeklyChart smokingData={smokingData} theme={theme} />
+            </View>
 
             <View style={styles.bottomSpacer} />
           </Animated.ScrollView>
@@ -384,13 +390,13 @@ const HomeScreen = () => {
           {/* Daily Limit Setting Modal */}
           <GoalSetting
             visible={showLimitModal}
-            currentLimit={dailyLimit}
+            currentGoal={dailyLimit}
             onSave={handleSaveLimit}
             onCancel={() => setShowLimitModal(false)}
             theme={theme}
           />
         </SafeAreaView>
-      </LinearGradient>
+      </View>
     </>
   );
 };
@@ -405,62 +411,73 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
+    alignItems: 'flex-start',
+    paddingHorizontal: 24,
     paddingTop: 20,
     paddingBottom: 12,
   },
   headerTitle: {
-    fontSize: 32,
-    fontWeight: '800',
-    letterSpacing: -1.5,
-    marginBottom: 2,
+    fontSize: 34,
+    fontWeight: '700',
+    letterSpacing: -0.5,
+    marginBottom: 4,
   },
-  headerSubtitle: {
-    fontSize: 15,
-    fontWeight: '500',
-    opacity: 0.8,
+  dailyStatus: {
+    marginTop: 2,
   },
-  themeButton: {
-    borderRadius: 20,
+  dailyStatusText: {
+    fontSize: 14,
+    fontWeight: '600',
+    letterSpacing: 0.3,
+  },
+  headerProgress: {
+    height: 3,
+    width: '100%',
     overflow: 'hidden',
   },
-  themeButtonGradient: {
-    padding: 12,
-    borderRadius: 20,
+  headerProgressFill: {
+    height: '100%',
+  },
+  themeButton: {
+    padding: 8,
+  },
+  themeButtonInner: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   themeIcon: {
-    fontSize: 24,
+    fontSize: 20,
   },
   todaySection: {
     alignItems: 'center',
-    paddingVertical: 30,
+    paddingTop: 20,
+    paddingBottom: 30,
     paddingHorizontal: 20,
   },
-  todayText: {
-    fontSize: 14,
-    fontWeight: '600',
-    letterSpacing: 1,
-    opacity: 0.7,
-    marginBottom: 8,
-    textTransform: 'uppercase',
+  todayLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    letterSpacing: 1.5,
+    opacity: 0.6,
+    marginBottom: 12,
   },
   todayCountRow: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    marginBottom: 20,
+    marginBottom: 4,
   },
   todayNumber: {
-    fontSize: 56,
-    fontWeight: '700',
-    letterSpacing: -2,
-    lineHeight: 56,
+    fontSize: 72,
+    fontWeight: '800',
+    letterSpacing: -3,
+    lineHeight: 72,
   },
   todayUnit: {
-    fontSize: 18,
-    fontWeight: '500',
-    marginLeft: 12,
-    opacity: 0.6,
+    fontSize: 13,
+    fontWeight: '700',
+    letterSpacing: 1.5,
+    marginBottom: 24,
   },
   progressContainer: {
     width: width - 80,
@@ -468,88 +485,98 @@ const styles = StyleSheet.create({
   },
   progressBarBg: {
     width: '100%',
-    height: 8,
-    borderRadius: 4,
+    height: 6,
+    borderRadius: 3,
     overflow: 'hidden',
-    marginBottom: 8,
+    marginBottom: 10,
   },
   progressBarFill: {
     height: '100%',
-    borderRadius: 4,
+    borderRadius: 3,
   },
   progressText: {
     fontSize: 13,
     fontWeight: '500',
+    letterSpacing: 0.3,
   },
-  statsRow: {
-    flexDirection: 'row',
-    paddingHorizontal: 20,
-    marginBottom: 16,
-  },
-  statSpacer: {
-    width: 12,
-  },
-  limitCard: {
-    marginHorizontal: 20,
-    marginBottom: 16,
-    borderRadius: 20,
-    overflow: 'hidden',
-  },
-  limitGradient: {
-    padding: 20,
+  statsContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
+    paddingVertical: 30,
+    paddingHorizontal: 40,
+  },
+  statItem: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  statLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    letterSpacing: 0.5,
+    marginBottom: 6,
+  },
+  statValue: {
+    fontSize: 32,
+    fontWeight: '700',
+    letterSpacing: -1,
+    marginBottom: 2,
+  },
+  statSubtext: {
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  statDivider: {
+    paddingHorizontal: 30,
+  },
+  dividerLine: {
+    width: 1,
+    height: 50,
+  },
+  limitButton: {
+    marginHorizontal: 24,
+    marginBottom: 40,
   },
   limitContent: {
-    flex: 1,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 16,
   },
-  limitTitle: {
-    fontSize: 12,
+  limitLabel: {
+    fontSize: 11,
     fontWeight: '600',
     letterSpacing: 0.5,
     marginBottom: 4,
   },
   limitValue: {
-    fontSize: 28,
+    fontSize: 24,
     fontWeight: '700',
-    marginBottom: 2,
+    letterSpacing: -0.5,
   },
-  limitEdit: {
-    fontSize: 12,
-    fontWeight: '500',
-  },
-  limitIcon: {
-    width: 50,
-    height: 50,
+  limitArrow: {
+    width: 24,
+    height: 24,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  limitEmoji: {
-    fontSize: 30,
+  limitArrowText: {
+    fontSize: 24,
+    fontWeight: '300',
   },
-  warningCard: {
-    marginHorizontal: 20,
-    marginBottom: 16,
-    borderRadius: 16,
-    overflow: 'hidden',
+  limitUnderline: {
+    height: 1,
+    width: '100%',
   },
-  warningGradient: {
-    padding: 20,
-    alignItems: 'center',
+  chartSection: {
+    paddingHorizontal: 24,
+    marginBottom: 30,
   },
-  warningTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#FFFFFF',
-    marginBottom: 8,
-  },
-  warningText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: 'rgba(255,255,255,0.9)',
-    textAlign: 'center',
-    lineHeight: 20,
+  chartTitle: {
+    fontSize: 22,
+    fontWeight: '600',
+    letterSpacing: -0.5,
+    marginBottom: 20,
   },
   bottomSpacer: {
     height: 40,

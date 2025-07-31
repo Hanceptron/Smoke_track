@@ -8,10 +8,19 @@ const DAILY_LIMIT_KEY = '@daily_limit';
 const getSmokingData = async () => {
   try {
     const data = await AsyncStorage.getItem(SMOKING_DATA_KEY);
-    return data ? JSON.parse(data) : { dailyCounts: {}, weeklyCount: 0, totalCount: 0 };
+    if (data) {
+      const parsed = JSON.parse(data);
+      // Handle both old and new data formats
+      if (parsed.dailyCounts) {
+        // Convert old format to new format
+        return parsed.dailyCounts;
+      }
+      return parsed;
+    }
+    return {};
   } catch (error) {
     console.error('Error getting smoking data:', error);
-    return { dailyCounts: {}, weeklyCount: 0, totalCount: 0 };
+    return {};
   }
 };
 
@@ -23,26 +32,27 @@ const saveSmokingData = async (data) => {
   }
 };
 
-const incrementTodayCount = async () => {
+const incrementTodayCount = async (dateString) => {
   try {
     let data = await getSmokingData();
-    const today = new Date().toDateString();
     
     // Ensure data structure exists
     if (!data || typeof data !== 'object') {
-      data = { dailyCounts: {}, weeklyCount: 0, totalCount: 0 };
-    }
-    if (!data.dailyCounts) {
-      data.dailyCounts = {};
+      data = {};
     }
     
-    data.dailyCounts[today] = (data.dailyCounts[today] || 0) + 1;
-    data.totalCount = (data.totalCount || 0) + 1;
+    // Use the provided dateString which should be in YYYY-MM-DD format from getToday()
+    const todayKey = dateString;
+    if (!todayKey) {
+      throw new Error('Date string is required');
+    }
+    
+    data[todayKey] = (data[todayKey] || 0) + 1;
     
     await saveSmokingData(data);
     await AsyncStorage.setItem(LAST_SMOKE_TIME_KEY, new Date().toISOString());
     
-    return data;
+    return data[todayKey];
   } catch (error) {
     console.error('Error incrementing today count:', error);
     throw error;
@@ -52,16 +62,16 @@ const incrementTodayCount = async () => {
 const getThemeMode = async () => {
   try {
     const theme = await AsyncStorage.getItem(THEME_MODE_KEY);
-    return theme || 'light';
+    return theme === 'true';
   } catch (error) {
     console.error('Error getting theme mode:', error);
-    return 'light';
+    return false;
   }
 };
 
 const saveThemeMode = async (mode) => {
   try {
-    await AsyncStorage.setItem(THEME_MODE_KEY, mode);
+    await AsyncStorage.setItem(THEME_MODE_KEY, String(mode));
   } catch (error) {
     console.error('Error saving theme mode:', error);
   }

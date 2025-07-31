@@ -1,0 +1,6 @@
+{
+  "dependencies": {
+    "expo": "^53.0.20",
+    "react-native-reanimated": "^4.0.1"
+  }
+}

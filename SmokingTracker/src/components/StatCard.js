@@ -1,80 +1,86 @@
-import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import React, { useRef, useEffect } from 'react';
+import { View, Text, StyleSheet, Animated } from 'react-native';
 
 const StatCard = ({ title, value, subtitle, highlight = false, theme }) => {
-  const cardStyle = [
-    styles.card,
-    {
-      backgroundColor: highlight ? theme.accent : theme.card,
-      borderColor: theme.cardBorder,
-    },
-  ];
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(10)).current;
 
-  const titleStyle = [
-    styles.title,
-    { color: highlight ? '#FFFFFF' : theme.text.secondary },
-  ];
-
-  const valueStyle = [
-    styles.value,
-    { color: highlight ? '#FFFFFF' : theme.text.primary },
-  ];
-
-  const subtitleStyle = [
-    styles.subtitle,
-    { color: highlight ? 'rgba(255,255,255,0.8)' : theme.text.tertiary },
-  ];
-
-  if (highlight) {
-    return (
-      <LinearGradient
-        colors={[theme.accent, '#E55100']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={cardStyle}
-      >
-        <Text style={titleStyle}>{title}</Text>
-        <Text style={valueStyle}>{value}</Text>
-        {subtitle && <Text style={subtitleStyle}>{subtitle}</Text>}
-      </LinearGradient>
-    );
-  }
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 600,
+        useNativeDriver: true,
+      }),
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: 600,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, []);
 
   return (
-    <View style={cardStyle}>
-      <Text style={titleStyle}>{title}</Text>
-      <Text style={valueStyle}>{value}</Text>
-      {subtitle && <Text style={subtitleStyle}>{subtitle}</Text>}
-    </View>
+    <Animated.View
+      style={[
+        styles.container,
+        {
+          opacity: fadeAnim,
+          transform: [{ translateY: slideAnim }],
+        },
+      ]}
+    >
+      <Text style={[
+        styles.title,
+        { color: theme.text.tertiary }
+      ]}>
+        {title.toUpperCase()}
+      </Text>
+      
+      <Text style={[
+        styles.value,
+        { 
+          color: highlight ? theme.accent : theme.text.primary,
+        }
+      ]}>
+        {value}
+      </Text>
+      
+      {subtitle && (
+        <Text style={[
+          styles.subtitle,
+          { color: theme.text.secondary }
+        ]}>
+          {subtitle}
+        </Text>
+      )}
+    </Animated.View>
   );
 };
 
 const styles = StyleSheet.create({
-  card: {
+  container: {
     flex: 1,
-    padding: 16,
-    borderRadius: 16,
-    borderWidth: 1,
-    minHeight: 100,
-    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 20,
   },
   title: {
-    fontSize: 13,
-    fontWeight: '500',
-    marginBottom: 4,
-    letterSpacing: 0.3,
+    fontSize: 11,
+    fontWeight: '600',
+    letterSpacing: 0.5,
+    marginBottom: 8,
   },
   value: {
-    fontSize: 28,
+    fontSize: 36,
     fontWeight: '700',
-    marginBottom: 2,
-    letterSpacing: -0.5,
+    letterSpacing: -1.5,
+    marginBottom: 4,
+    lineHeight: 36,
   },
   subtitle: {
-    fontSize: 11,
-    fontWeight: '400',
-    letterSpacing: 0.2,
+    fontSize: 13,
+    fontWeight: '500',
+    letterSpacing: 0.3,
   },
 });
 

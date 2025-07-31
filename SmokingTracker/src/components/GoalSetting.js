@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -8,90 +8,183 @@ import {
   Modal,
   KeyboardAvoidingView,
   Platform,
+  Animated,
 } from 'react-native';
 import { BlurView } from 'expo-blur';
+import { LinearGradient } from 'expo-linear-gradient';
 import HapticService from '../services/HapticService';
+import { getShadowStyle, getGradientColors } from '../theme/colors';
 
 const GoalSetting = ({ visible, currentGoal, onSave, onCancel, theme }) => {
-  const [tempGoal, setTempGoal] = useState((currentGoal ?? 10).toString());
+  const [tempLimit, setTempLimit] = useState(currentGoal.toString());
+  const scaleAnim = useRef(new Animated.Value(0.8)).current;
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (visible) {
+      Animated.parallel([
+        Animated.spring(scaleAnim, {
+          toValue: 1,
+          tension: 30,
+          friction: 7,
+          useNativeDriver: true,
+        }),
+        Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    } else {
+      scaleAnim.setValue(0.8);
+      fadeAnim.setValue(0);
+    }
+  }, [visible]);
 
   const handleSave = () => {
-    if (tempGoal.trim() === '') {
-      // Or show an error message to the user
-      return;
-    }
-    const goal = parseInt(tempGoal, 10);
-    if (!isNaN(goal) && goal > 0) {
+    if (tempLimit.trim() === '') return;
+    
+    const limit = parseInt(tempLimit, 10);
+    if (!isNaN(limit) && limit > 0) {
       HapticService.success();
-      onSave(goal);
+      
+      Animated.timing(scaleAnim, {
+        toValue: 0.9,
+        duration: 100,
+        useNativeDriver: true,
+      }).start(() => {
+        onSave(limit);
+      });
     }
   };
 
   const handleCancel = () => {
     HapticService.light();
-    setTempGoal((currentGoal ?? 10).toString());
-    onCancel();
+    setTempLimit(currentGoal.toString());
+    
+    Animated.timing(scaleAnim, {
+      toValue: 0.9,
+      duration: 100,
+      useNativeDriver: true,
+    }).start(() => {
+      onCancel();
+    });
   };
+
+  const shadowStyle = getShadowStyle(theme, 'convex', 1.2);
+  const buttonShadow = getShadowStyle(theme, 'flat', 0.6);
 
   return (
     <Modal
       visible={visible}
       transparent
-      animationType="slide"
+      animationType="none"
     >
-      <View style={styles.overlay}>
-        <BlurView intensity={80} style={StyleSheet.absoluteFill} />
+      <Animated.View style={[styles.overlay, { opacity: fadeAnim }]}>
+        <BlurView intensity={100} style={StyleSheet.absoluteFill} />
         <KeyboardAvoidingView 
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={styles.centeredView}
         >
-          <View style={[styles.modalContent, { backgroundColor: theme.card }]}>
-            <Text style={[styles.title, { color: theme.text.primary }]}>
-              Weekly Goal
-            </Text>
-            
-            <Text style={[styles.subtitle, { color: theme.text.secondary }]}>
-              Set your target for this week
-            </Text>
-            
-            <View style={[styles.inputContainer, { backgroundColor: theme.background, borderColor: theme.separator }]}>
-              <TextInput
-                style={[styles.input, { color: theme.text.primary }]}
-                value={tempGoal}
-                onChangeText={setTempGoal}
-                keyboardType="number-pad"
-                placeholder="35"
-                placeholderTextColor={theme.text.tertiary}
-                autoFocus
-                selectTextOnFocus
-              />
-              <Text style={[styles.unit, { color: theme.text.secondary }]}>
-                cigarettes
-              </Text>
-            </View>
-            
-            <View style={styles.buttonContainer}>
-              <TouchableOpacity
-                style={[styles.button, styles.cancelButton, { backgroundColor: theme.background }]}
-                onPress={handleCancel}
-              >
-                <Text style={[styles.buttonText, { color: theme.text.primary }]}>
-                  Cancel
+          <Animated.View style={[
+            styles.modalContainer,
+            shadowStyle,
+            { transform: [{ scale: scaleAnim }] }
+          ]}>
+            <LinearGradient
+              colors={getGradientColors(theme, 'surface')}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.modalContent}
+            >
+              {/* Header */}
+              <View style={styles.header}>
+                <Text style={[styles.title, { color: theme.text.primary }]}>
+                  Daily Limit
                 </Text>
-              </TouchableOpacity>
+                <Text style={[styles.subtitle, { color: theme.text.secondary }]}>
+                  Set your maximum cigarettes for today
+                </Text>
+              </View>
               
-              <TouchableOpacity
-                style={[styles.button, styles.saveButton, { backgroundColor: theme.accent }]}
-                onPress={handleSave}
-              >
-                <Text style={[styles.buttonText, { color: '#FFFFFF' }]}>
-                  Save
+              {/* Input Container */}
+              <View style={[
+                styles.inputWrapper,
+                { backgroundColor: theme.background }
+              ]}>
+                <View style={[
+                  styles.inputContainer,
+                  { 
+                    backgroundColor: theme.background,
+                    shadowColor: theme.shadow.dark,
+                    shadowOffset: { width: -4, height: -4 },
+                    shadowOpacity: 0.1,
+                    shadowRadius: 8,
+                  }
+                ]}>
+                  <TextInput
+                    style={[styles.input, { color: theme.text.primary }]}
+                    value={tempLimit}
+                    onChangeText={setTempLimit}
+                    keyboardType="number-pad"
+                    placeholder="10"
+                    placeholderTextColor={theme.text.tertiary}
+                    autoFocus
+                    selectTextOnFocus
+                  />
+                  <Text style={[styles.unit, { color: theme.text.secondary }]}>
+                    max today
+                  </Text>
+                </View>
+              </View>
+              
+              {/* Buttons */}
+              <View style={styles.buttonContainer}>
+                <TouchableOpacity
+                  onPress={handleCancel}
+                  activeOpacity={0.8}
+                  style={[styles.buttonWrapper, buttonShadow]}
+                >
+                  <LinearGradient
+                    colors={getGradientColors(theme, 'button')}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.button}
+                  >
+                    <Text style={[styles.buttonText, { color: theme.text.primary }]}>
+                      Cancel
+                    </Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+                
+                <TouchableOpacity
+                  onPress={handleSave}
+                  activeOpacity={0.8}
+                  style={[styles.buttonWrapper, styles.saveButton, buttonShadow]}
+                >
+                  <LinearGradient
+                    colors={theme.accentGradient}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.button}
+                  >
+                    <Text style={[styles.buttonText, { color: '#FFFFFF' }]}>
+                      Set Limit
+                    </Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+              </View>
+              
+              {/* Motivational text */}
+              <View style={styles.motivation}>
+                <Text style={[styles.motivationText, { color: theme.text.tertiary }]}>
+                  Set a realistic limit and stick to it
                 </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
+              </View>
+            </LinearGradient>
+          </Animated.View>
         </KeyboardAvoidingView>
-      </View>
+      </Animated.View>
     </Modal>
   );
 };
@@ -108,98 +201,84 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 24,
   },
-  modalContent: {
+  modalContainer: {
     width: '100%',
-    padding: 24,
-    borderRadius: 24,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 10,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 20,
-    elevation: 5,
+    borderRadius: 28,
+    overflow: 'hidden',
+  },
+  modalContent: {
+    padding: 28,
+  },
+  header: {
+    alignItems: 'center',
+    marginBottom: 28,
   },
   title: {
-    fontSize: 24,
+    fontSize: 26,
     fontWeight: '700',
     marginBottom: 8,
-    textAlign: 'center',
     letterSpacing: -0.5,
   },
   subtitle: {
     fontSize: 15,
-    fontWeight: '400',
-    marginBottom: 24,
-    textAlign: 'center',
+    fontWeight: '500',
+    opacity: 0.8,
+  },
+  inputWrapper: {
+    borderRadius: 20,
+    padding: 4,
+    marginBottom: 28,
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingHorizontal: 24,
+    paddingVertical: 20,
     borderRadius: 16,
-    borderWidth: 1,
-    marginBottom: 24,
   },
   input: {
     flex: 1,
-    fontSize: 32,
+    fontSize: 36,
     fontWeight: '700',
     textAlign: 'center',
     letterSpacing: -1,
   },
   unit: {
-    fontSize: 15,
-    fontWeight: '500',
-    marginLeft: 8,
+    fontSize: 16,
+    fontWeight: '600',
+    marginLeft: 12,
   },
   buttonContainer: {
     flexDirection: 'row',
     gap: 12,
   },
-  button: {
+  buttonWrapper: {
     flex: 1,
-    paddingVertical: 16,
-    borderRadius: 14,
-    alignItems: 'center',
+    borderRadius: 16,
+    overflow: 'hidden',
   },
-  cancelButton: {
-    borderWidth: 1,
-    borderColor: 'transparent',
+  button: {
+    paddingVertical: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   saveButton: {
-    // backgroundColor set inline
+    flex: 1.2,
   },
   buttonText: {
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: '600',
-    letterSpacing: -0.5,
+    letterSpacing: -0.3,
+  },
+  motivation: {
+    alignItems: 'center',
+    marginTop: 20,
+  },
+  motivationText: {
+    fontSize: 14,
+    fontWeight: '500',
+    letterSpacing: 0.3,
   },
 });
 
 export default GoalSetting;
-
-export const getShadowStyle = (theme, type, intensity = 1) => {
-  switch (type) {
-    case 'convex':
-      return {
-        shadowColor: theme.shadow,
-        shadowOffset: { width: 0, height: 2 * intensity },
-        shadowOpacity: 0.1 * intensity,
-        shadowRadius: 4 * intensity,
-        elevation: 2 * intensity,
-      };
-    case 'concave':
-      return {
-        shadowColor: theme.shadow,
-        shadowOffset: { width: 0, height: -1 * intensity },
-        shadowOpacity: 0.08 * intensity,
-        shadowRadius: 3 * intensity,
-        elevation: 1 * intensity,
-      };
-    default:
-      return {};
-  }
-};

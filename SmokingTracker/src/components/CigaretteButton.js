@@ -21,9 +21,9 @@ import Svg, {
 import { getShadowStyle } from '../theme/colors';
 
 const { width } = Dimensions.get('window');
-const BUTTON_SIZE = width * 0.35;
-const CIGARETTE_LENGTH = BUTTON_SIZE * 0.7;
-const CIGARETTE_WIDTH = CIGARETTE_LENGTH * 0.08; // Realistic proportions
+const BUTTON_SIZE = width * 0.32;
+const CIGARETTE_LENGTH = BUTTON_SIZE * 0.65;
+const CIGARETTE_WIDTH = CIGARETTE_LENGTH * 0.07; // Even thinner for more realistic look
 
 const AnimatedG = Animated.createAnimatedComponent(G);
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
