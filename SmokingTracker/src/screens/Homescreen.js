@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,8 @@ import {
   TouchableOpacity,
   RefreshControl,
   StatusBar,
+  Animated,
+  Dimensions,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import StorageService from '../services/StorageService';
@@ -16,55 +18,112 @@ import CigaretteButton from '../components/CigaretteButton';
 import WeeklyChart from '../components/WeeklyChart';
 import StatCard from '../components/StatCard';
 import TimeSinceLastSmoke from '../components/TimeSinceLastSmoke';
-import GoalSetting from '../components/GoalSetting';
+import DailyLimitSetting from '../components/GoalSetting';
 import { getToday, getWeeklyStats } from '../utils/dateHelpers';
-import { DEFAULT_WEEKLY_GOAL } from '../utils/constants';
-import { getTheme } from '../theme/colors';
+import { getTheme, getShadowStyle, getGradientColors } from '../theme/colors';
+
+const { width } = Dimensions.get('window');
+const DEFAULT_DAILY_LIMIT = 10;
 
 const HomeScreen = () => {
   const [smokingData, setSmokingData] = useState({});
-  const [weeklyGoal, setWeeklyGoal] = useState(DEFAULT_WEEKLY_GOAL);
+  const [dailyLimit, setDailyLimit] = useState(DEFAULT_DAILY_LIMIT);
   const [lastSmokeTime, setLastSmokeTime] = useState(null);
   const [isDarkMode, setIsDarkMode] = useState(false);
-  const [showGoalModal, setShowGoalModal] = useState(false);
+  const [showLimitModal, setShowLimitModal] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [stats, setStats] = useState({
+  const [displayCount, setDisplayCount] = useState(0);
+  const [weeklyStats, setWeeklyStats] = useState({
     total: 0,
     average: '0',
-    todayCount: 0,
-    progressPercentage: 0,
     trendPercentage: 0,
   });
 
   const theme = getTheme(isDarkMode);
+  const scrollY = useRef(new Animated.Value(0)).current;
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const todayFadeAnim = useRef(new Animated.Value(0.5)).current;
+  const progressAnim = useRef(new Animated.Value(1)).current;
+
+  const todayCount = smokingData[getToday()] || 0;
+  const remainingToday = Math.max(0, dailyLimit - todayCount);
+  const progressPercentage = Math.max(0, (remainingToday / dailyLimit) * 100);
 
   useEffect(() => {
     loadData();
+    // Fade in animations
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 500,
+        useNativeDriver: true,
+      }),
+      Animated.timing(todayFadeAnim, {
+        toValue: 1,
+        duration: 800,
+        delay: 200,
+        useNativeDriver: true,
+      }),
+    ]).start();
   }, []);
 
   useEffect(() => {
-    const newStats = getWeeklyStats(smokingData, weeklyGoal);
-    setStats(newStats);
-  }, [smokingData, weeklyGoal]);
+    // Update weekly stats
+    const stats = getWeeklyStats(smokingData, 999); // No weekly goal needed
+    setWeeklyStats(stats);
+    
+    // Animate display count
+    const animationDuration = 500;
+    const startValue = displayCount;
+    const endValue = todayCount;
+    const startTime = Date.now();
+    
+    const timer = setInterval(() => {
+      const elapsed = Date.now() - startTime;
+      const progress = Math.min(elapsed / animationDuration, 1);
+      
+      const easeOutQuad = progress * (2 - progress);
+      const currentValue = Math.round(startValue + (endValue - startValue) * easeOutQuad);
+      
+      setDisplayCount(currentValue);
+      
+      if (progress >= 1) {
+        clearInterval(timer);
+      }
+    }, 16);
+
+    // Animate progress bar
+    Animated.spring(progressAnim, {
+      toValue: progressPercentage / 100,
+      tension: 40,
+      friction: 8,
+      useNativeDriver: false,
+    }).start();
+    
+    return () => clearInterval(timer);
+  }, [smokingData, dailyLimit]);
 
   const loadData = async () => {
     try {
-      const [data, goal, isDark, lastTime] = await Promise.all([
+      const [data, limit, isDark, lastTime] = await Promise.all([
         StorageService.getSmokingData(),
-        StorageService.getWeeklyGoal(),
+        StorageService.getDailyLimit(),
         StorageService.getThemeMode(),
         StorageService.getLastSmokeTime(),
       ]);
       
       setSmokingData(data || {});
-      setWeeklyGoal(goal || DEFAULT_WEEKLY_GOAL);
+      setDailyLimit(limit || DEFAULT_DAILY_LIMIT);
       setIsDarkMode(isDark || false);
       setLastSmokeTime(lastTime);
+      
+      // Set initial display count
+      const today = getToday();
+      setDisplayCount((data && data[today]) || 0);
     } catch (error) {
       console.error('Error loading data:', error);
-      // Reset to defaults on error
       setSmokingData({});
-      setWeeklyGoal(DEFAULT_WEEKLY_GOAL);
+      setDailyLimit(DEFAULT_DAILY_LIMIT);
       setIsDarkMode(false);
       setLastSmokeTime(null);
     }
@@ -75,6 +134,10 @@ const HomeScreen = () => {
       HapticService.medium();
       const today = getToday();
       const newCount = await StorageService.incrementTodayCount(today);
+      
+      if (newCount > dailyLimit) {
+        HapticService.warning();
+      }
       
       setSmokingData(prev => ({
         ...prev,
@@ -88,13 +151,13 @@ const HomeScreen = () => {
     }
   };
 
-  const handleSaveGoal = async (newGoal) => {
+  const handleSaveLimit = async (newLimit) => {
     try {
-      await StorageService.saveWeeklyGoal(newGoal);
-      setWeeklyGoal(newGoal);
-      setShowGoalModal(false);
+      await StorageService.saveDailyLimit(newLimit);
+      setDailyLimit(newLimit);
+      setShowLimitModal(false);
     } catch (error) {
-      console.error('Error saving goal:', error);
+      console.error('Error saving limit:', error);
     }
   };
 
@@ -120,147 +183,214 @@ const HomeScreen = () => {
     }
   };
 
-  const getTrendIcon = () => {
-    const trend = parseFloat(stats.trendPercentage);
-    if (trend > 0) return '↑';
-    if (trend < 0) return '↓';
-    return '→';
+  const getProgressBarColor = () => {
+    if (progressPercentage > 50) return theme.success;
+    if (progressPercentage > 20) return theme.warning;
+    return theme.danger;
   };
 
-  const getTrendColor = () => {
-    const trend = parseFloat(stats.trendPercentage);
-    if (trend > 0) return theme.danger;
-    if (trend < 0) return theme.success;
-    return theme.text.secondary;
-  };
+  const headerOpacity = scrollY.interpolate({
+    inputRange: [0, 100],
+    outputRange: [1, 0.8],
+    extrapolate: 'clamp',
+  });
 
   return (
     <>
       <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
-      <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
-        <ScrollView
-          showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={onRefresh}
-              tintColor={theme.text.secondary}
-            />
-          }
-        >
-          {/* Header */}
-          <View style={styles.header}>
-            <Text style={[styles.headerTitle, { color: theme.text.primary }]}>
-              Smoking Tracker
-            </Text>
-            <TouchableOpacity onPress={toggleTheme} style={styles.themeButton}>
-              <Text style={[styles.themeIcon, { color: theme.text.secondary }]}>
-                {isDarkMode ? '☀️' : '🌙'}
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Today's Count Card */}
-          <LinearGradient
-            colors={[theme.accent, '#E55100']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.todayCard}
+      <LinearGradient
+        colors={isDarkMode ? ['#1A1B26', '#16171F'] : ['#E8EAF0', '#DFE1E7']}
+        style={styles.container}
+      >
+        <SafeAreaView style={styles.safeArea}>
+          <Animated.ScrollView
+            showsVerticalScrollIndicator={false}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+                tintColor={theme.text.secondary}
+              />
+            }
+            onScroll={Animated.event(
+              [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+              { useNativeDriver: true }
+            )}
+            scrollEventThrottle={16}
+            style={{ opacity: fadeAnim }}
           >
-            <Text style={styles.todayLabel}>Today</Text>
-            <Text style={styles.todayCount}>{stats.todayCount}</Text>
-            <Text style={styles.todaySubtitle}>cigarettes</Text>
-          </LinearGradient>
-
-          {/* Cigarette Button */}
-          <CigaretteButton onPress={handleLogCigarette} theme={theme} />
-
-          {/* Time Since Last */}
-          <TimeSinceLastSmoke lastSmokeTime={lastSmokeTime} theme={theme} />
-
-          {/* Stats Row */}
-          <View style={styles.statsRow}>
-            <StatCard
-              title="Weekly Total"
-              value={stats.total}
-              subtitle={`${stats.progressPercentage.toFixed(0)}% of goal`}
-              theme={theme}
-            />
-            <View style={styles.statSpacer} />
-            <StatCard
-              title="Daily Average"
-              value={stats.average}
-              subtitle="per day"
-              theme={theme}
-            />
-          </View>
-
-          {/* Trend Card */}
-          <TouchableOpacity
-            style={[styles.trendCard, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
-            onPress={() => setShowGoalModal(true)}
-          >
-            <View style={styles.trendLeft}>
-              <Text style={[styles.trendTitle, { color: theme.text.secondary }]}>
-                Weekly Trend
-              </Text>
-              <View style={styles.trendValue}>
-                <Text style={[styles.trendIcon, { color: getTrendColor() }]}>
-                  {getTrendIcon()}
+            {/* Header */}
+            <Animated.View style={[styles.header, { opacity: headerOpacity }]}>
+              <View>
+                <Text style={[styles.headerTitle, { color: theme.text.primary }]}>
+                  Quit Tracker
                 </Text>
-                <Text style={[styles.trendPercentage, { color: theme.text.primary }]}>
-                  {Math.abs(parseFloat(stats.trendPercentage))}%
-                </Text>
-                <Text style={[styles.trendLabel, { color: theme.text.secondary }]}>
-                  vs last week
+                <Text style={[styles.headerSubtitle, { color: theme.text.secondary }]}>
+                  Reduce your daily intake
                 </Text>
               </View>
-            </View>
-            <View style={styles.goalSection}>
-              <Text style={[styles.goalLabel, { color: theme.text.secondary }]}>
-                Goal
-              </Text>
-              <Text style={[styles.goalValue, { color: theme.text.primary }]}>
-                {weeklyGoal}
-              </Text>
-            </View>
-          </TouchableOpacity>
+              <TouchableOpacity onPress={toggleTheme} style={styles.themeButton}>
+                <LinearGradient
+                  colors={getGradientColors(theme, 'button')}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.themeButtonGradient}
+                >
+                  <Text style={styles.themeIcon}>
+                    {isDarkMode ? '☀️' : '🌙'}
+                  </Text>
+                </LinearGradient>
+              </TouchableOpacity>
+            </Animated.View>
 
-          {/* Weekly Chart */}
-          <WeeklyChart smokingData={smokingData} theme={theme} />
+            {/* Today's Count - Minimalistic */}
+            <Animated.View style={[
+              styles.todaySection, 
+              { 
+                opacity: todayFadeAnim,
+                transform: [{
+                  translateY: todayFadeAnim.interpolate({
+                    inputRange: [0.5, 1],
+                    outputRange: [20, 0],
+                  })
+                }]
+              }
+            ]}>
+              <Text style={[styles.todayText, { color: theme.text.secondary }]}>
+                Today
+              </Text>
+              <View style={styles.todayCountRow}>
+                <Animated.Text style={[styles.todayNumber, { color: theme.text.primary }]}>
+                  {displayCount}
+                </Animated.Text>
+                <Text style={[styles.todayUnit, { color: theme.text.tertiary }]}>
+                  cigarettes
+                </Text>
+              </View>
+              
+              {/* Reverse Progress Bar */}
+              <View style={styles.progressContainer}>
+                <View style={[styles.progressBarBg, { backgroundColor: theme.shadow.dark, opacity: 0.2 }]}>
+                  <Animated.View 
+                    style={[
+                      styles.progressBarFill,
+                      {
+                        width: progressAnim.interpolate({
+                          inputRange: [0, 1],
+                          outputRange: ['0%', '100%'],
+                        }),
+                        backgroundColor: getProgressBarColor(),
+                      }
+                    ]}
+                  />
+                </View>
+                <Text style={[styles.progressText, { color: theme.text.tertiary }]}>
+                  {remainingToday} remaining of {dailyLimit} daily limit
+                </Text>
+              </View>
+            </Animated.View>
 
-          {/* Progress Bar */}
-          <View style={[styles.progressCard, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
-            <Text style={[styles.progressTitle, { color: theme.text.primary }]}>
-              Weekly Progress
-            </Text>
-            <View style={[styles.progressBar, { backgroundColor: theme.separator }]}>
-              <View 
-                style={[
-                  styles.progressFill, 
-                  { 
-                    backgroundColor: stats.progressPercentage >= 100 ? theme.danger : theme.accent,
-                    width: `${Math.min(stats.progressPercentage, 100)}%`
-                  }
-                ]} 
+            {/* Cigarette Button */}
+            <CigaretteButton onPress={handleLogCigarette} theme={theme} />
+
+            {/* Time Since Last */}
+            <TimeSinceLastSmoke lastSmokeTime={lastSmokeTime} theme={theme} />
+
+            {/* Stats Row */}
+            <View style={styles.statsRow}>
+              <StatCard
+                title="Today's Limit"
+                value={remainingToday}
+                subtitle="left to smoke"
+                highlight={remainingToday === 0}
+                theme={theme}
+              />
+              <View style={styles.statSpacer} />
+              <StatCard
+                title="This Week"
+                value={weeklyStats.average}
+                subtitle="daily average"
+                theme={theme}
               />
             </View>
-            <Text style={[styles.progressText, { color: theme.text.secondary }]}>
-              {stats.total} / {weeklyGoal} cigarettes
-            </Text>
-          </View>
 
-        </ScrollView>
+            {/* Daily Limit Setting Card */}
+            <TouchableOpacity
+              onPress={() => {
+                HapticService.light();
+                setShowLimitModal(true);
+              }}
+              activeOpacity={0.8}
+              style={[styles.limitCard, getShadowStyle(theme, 'convex', 0.8)]}
+            >
+              <LinearGradient
+                colors={getGradientColors(theme, 'surface')}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.limitGradient}
+              >
+                <View style={styles.limitContent}>
+                  <Text style={[styles.limitTitle, { color: theme.text.secondary }]}>
+                    DAILY LIMIT
+                  </Text>
+                  <Text style={[styles.limitValue, { color: theme.accent }]}>
+                    {dailyLimit}
+                  </Text>
+                  <Text style={[styles.limitEdit, { color: theme.text.tertiary }]}>
+                    tap to change
+                  </Text>
+                </View>
+                <View style={styles.limitIcon}>
+                  <Text style={styles.limitEmoji}>🎯</Text>
+                </View>
+              </LinearGradient>
+            </TouchableOpacity>
 
-        {/* Goal Setting Modal */}
-        <GoalSetting
-          visible={showGoalModal}
-          currentGoal={weeklyGoal}
-          onSave={handleSaveGoal}
-          onCancel={() => setShowGoalModal(false)}
-          theme={theme}
-        />
-      </SafeAreaView>
+            {/* Weekly Chart */}
+            <WeeklyChart smokingData={smokingData} theme={theme} />
+
+            {/* Motivation Card */}
+            {todayCount >= dailyLimit && (
+              <Animated.View style={[
+                styles.warningCard,
+                getShadowStyle(theme, 'concave', 0.6),
+                {
+                  opacity: fadeAnim,
+                  transform: [{
+                    scale: fadeAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [0.9, 1],
+                    })
+                  }]
+                }
+              ]}>
+                <LinearGradient
+                  colors={[theme.danger, '#D63031']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.warningGradient}
+                >
+                  <Text style={styles.warningTitle}>Daily Limit Reached</Text>
+                  <Text style={styles.warningText}>
+                    Consider stopping for today. Tomorrow is a new opportunity!
+                  </Text>
+                </LinearGradient>
+              </Animated.View>
+            )}
+
+            <View style={styles.bottomSpacer} />
+          </Animated.ScrollView>
+
+          {/* Daily Limit Setting Modal */}
+          <DailyLimitSetting
+            visible={showLimitModal}
+            currentLimit={dailyLimit}
+            onSave={handleSaveLimit}
+            onCancel={() => setShowLimitModal(false)}
+            theme={theme}
+          />
+        </SafeAreaView>
+      </LinearGradient>
     </>
   );
 };
@@ -269,135 +399,160 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  safeArea: {
+    flex: 1,
+  },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 8,
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 12,
   },
   headerTitle: {
-    fontSize: 34,
-    fontWeight: '700',
-    letterSpacing: -1,
+    fontSize: 32,
+    fontWeight: '800',
+    letterSpacing: -1.5,
+    marginBottom: 2,
+  },
+  headerSubtitle: {
+    fontSize: 15,
+    fontWeight: '500',
+    opacity: 0.8,
   },
   themeButton: {
-    padding: 8,
+    borderRadius: 20,
+    overflow: 'hidden',
+  },
+  themeButtonGradient: {
+    padding: 12,
+    borderRadius: 20,
   },
   themeIcon: {
     fontSize: 24,
   },
-  todayCard: {
-    marginHorizontal: 16,
-    marginTop: 16,
-    marginBottom: 24,
-    padding: 24,
-    borderRadius: 20,
+  todaySection: {
     alignItems: 'center',
+    paddingVertical: 30,
+    paddingHorizontal: 20,
   },
-  todayLabel: {
-    color: 'rgba(255,255,255,0.8)',
-    fontSize: 15,
-    fontWeight: '500',
-    marginBottom: 4,
+  todayText: {
+    fontSize: 14,
+    fontWeight: '600',
+    letterSpacing: 1,
+    opacity: 0.7,
+    marginBottom: 8,
+    textTransform: 'uppercase',
   },
-  todayCount: {
-    fontSize: 72,
-    fontWeight: '700',
-    color: '#FFFFFF',
-    letterSpacing: -3,
-    lineHeight: 72,
-  },
-  todaySubtitle: {
-    color: 'rgba(255,255,255,0.8)',
-    fontSize: 15,
-    fontWeight: '500',
-  },
-  statsRow: {
-    flexDirection: 'row',
-    paddingHorizontal: 16,
-    marginBottom: 16,
-  },
-  statSpacer: {
-    width: 12,
-  },
-  trendCard: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginHorizontal: 16,
-    marginBottom: 16,
-    padding: 16,
-    borderRadius: 16,
-    borderWidth: 1,
-  },
-  trendLeft: {
-    flex: 1,
-  },
-  trendTitle: {
-    fontSize: 13,
-    fontWeight: '500',
-    marginBottom: 4,
-  },
-  trendValue: {
+  todayCountRow: {
     flexDirection: 'row',
     alignItems: 'baseline',
+    marginBottom: 20,
   },
-  trendIcon: {
-    fontSize: 20,
-    marginRight: 4,
-  },
-  trendPercentage: {
-    fontSize: 24,
+  todayNumber: {
+    fontSize: 56,
     fontWeight: '700',
-    letterSpacing: -0.5,
+    letterSpacing: -2,
+    lineHeight: 56,
   },
-  trendLabel: {
-    fontSize: 13,
-    fontWeight: '400',
-    marginLeft: 6,
-  },
-  goalSection: {
-    alignItems: 'center',
-    paddingLeft: 16,
-    borderLeftWidth: 1,
-    borderLeftColor: '#E5E5EA',
-  },
-  goalLabel: {
-    fontSize: 11,
+  todayUnit: {
+    fontSize: 18,
     fontWeight: '500',
-    marginBottom: 2,
+    marginLeft: 12,
+    opacity: 0.6,
   },
-  goalValue: {
-    fontSize: 20,
-    fontWeight: '700',
+  progressContainer: {
+    width: width - 80,
+    alignItems: 'center',
   },
-  progressCard: {
-    marginHorizontal: 16,
-    marginBottom: 24,
-    padding: 16,
-    borderRadius: 16,
-    borderWidth: 1,
-  },
-  progressTitle: {
-    fontSize: 15,
-    fontWeight: '600',
-    marginBottom: 12,
-  },
-  progressBar: {
+  progressBarBg: {
+    width: '100%',
     height: 8,
     borderRadius: 4,
     overflow: 'hidden',
     marginBottom: 8,
   },
-  progressFill: {
+  progressBarFill: {
     height: '100%',
     borderRadius: 4,
   },
   progressText: {
     fontSize: 13,
     fontWeight: '500',
+  },
+  statsRow: {
+    flexDirection: 'row',
+    paddingHorizontal: 20,
+    marginBottom: 16,
+  },
+  statSpacer: {
+    width: 12,
+  },
+  limitCard: {
+    marginHorizontal: 20,
+    marginBottom: 16,
+    borderRadius: 20,
+    overflow: 'hidden',
+  },
+  limitGradient: {
+    padding: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  limitContent: {
+    flex: 1,
+  },
+  limitTitle: {
+    fontSize: 12,
+    fontWeight: '600',
+    letterSpacing: 0.5,
+    marginBottom: 4,
+  },
+  limitValue: {
+    fontSize: 28,
+    fontWeight: '700',
+    marginBottom: 2,
+  },
+  limitEdit: {
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  limitIcon: {
+    width: 50,
+    height: 50,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  limitEmoji: {
+    fontSize: 30,
+  },
+  warningCard: {
+    marginHorizontal: 20,
+    marginBottom: 16,
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+  warningGradient: {
+    padding: 20,
+    alignItems: 'center',
+  },
+  warningTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    marginBottom: 8,
+  },
+  warningText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: 'rgba(255,255,255,0.9)',
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  bottomSpacer: {
+    height: 40,
   },
 });
 
