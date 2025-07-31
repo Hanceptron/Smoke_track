@@ -29,7 +29,7 @@ const GoalSetting = ({ visible, currentGoal, onSave, onCancel, theme }) => {
 
   const handleCancel = () => {
     HapticService.light();
-    setTempGoal(currentGoal.toString());
+    setTempGoal((currentGoal ?? 10).toString());
     onCancel();
   };
 

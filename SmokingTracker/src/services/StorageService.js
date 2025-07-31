@@ -1,16 +1,82 @@
-// Your existing StorageService.js
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// Existing keys
 const SMOKING_DATA_KEY = '@smoking_data';
 const THEME_MODE_KEY = '@theme_mode';
 const LAST_SMOKE_TIME_KEY = '@last_smoke_time';
-// Add this new key
 const DAILY_LIMIT_KEY = '@daily_limit';
 
-// ... all your existing methods ...
+const getSmokingData = async () => {
+  try {
+    const data = await AsyncStorage.getItem(SMOKING_DATA_KEY);
+    return data ? JSON.parse(data) : { dailyCounts: {}, weeklyCount: 0, totalCount: 0 };
+  } catch (error) {
+    console.error('Error getting smoking data:', error);
+    return { dailyCounts: {}, weeklyCount: 0, totalCount: 0 };
+  }
+};
 
-// ADD these new methods
+const saveSmokingData = async (data) => {
+  try {
+    await AsyncStorage.setItem(SMOKING_DATA_KEY, JSON.stringify(data));
+  } catch (error) {
+    console.error('Error saving smoking data:', error);
+  }
+};
+
+const incrementTodayCount = async () => {
+  try {
+    let data = await getSmokingData();
+    const today = new Date().toDateString();
+    
+    // Ensure data structure exists
+    if (!data || typeof data !== 'object') {
+      data = { dailyCounts: {}, weeklyCount: 0, totalCount: 0 };
+    }
+    if (!data.dailyCounts) {
+      data.dailyCounts = {};
+    }
+    
+    data.dailyCounts[today] = (data.dailyCounts[today] || 0) + 1;
+    data.totalCount = (data.totalCount || 0) + 1;
+    
+    await saveSmokingData(data);
+    await AsyncStorage.setItem(LAST_SMOKE_TIME_KEY, new Date().toISOString());
+    
+    return data;
+  } catch (error) {
+    console.error('Error incrementing today count:', error);
+    throw error;
+  }
+};
+
+const getThemeMode = async () => {
+  try {
+    const theme = await AsyncStorage.getItem(THEME_MODE_KEY);
+    return theme || 'light';
+  } catch (error) {
+    console.error('Error getting theme mode:', error);
+    return 'light';
+  }
+};
+
+const saveThemeMode = async (mode) => {
+  try {
+    await AsyncStorage.setItem(THEME_MODE_KEY, mode);
+  } catch (error) {
+    console.error('Error saving theme mode:', error);
+  }
+};
+
+const getLastSmokeTime = async () => {
+  try {
+    const time = await AsyncStorage.getItem(LAST_SMOKE_TIME_KEY);
+    return time ? new Date(time) : null;
+  } catch (error) {
+    console.error('Error getting last smoke time:', error);
+    return null;
+  }
+};
+
 const getDailyLimit = async () => {
   try {
     const limit = await AsyncStorage.getItem(DAILY_LIMIT_KEY);
@@ -29,9 +95,13 @@ const saveDailyLimit = async (limit) => {
   }
 };
 
-// Update your export to include the new methods
 export default {
-  // ... all your existing methods ...
-  getDailyLimit,    // ADD this
-  saveDailyLimit,   // ADD this
+  getSmokingData,
+  saveSmokingData,
+  incrementTodayCount,
+  getThemeMode,
+  saveThemeMode,
+  getLastSmokeTime,
+  getDailyLimit,
+  saveDailyLimit,
 };
