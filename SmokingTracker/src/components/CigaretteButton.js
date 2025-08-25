@@ -1,78 +1,51 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   View,
   TouchableOpacity,
   StyleSheet,
   Animated,
   Dimensions,
+  Text,
 } from 'react-native';
 import Svg, { 
-  Rect, 
-  Circle, 
   Path, 
+  Circle, 
   Defs, 
   LinearGradient, 
-  RadialGradient, 
+  RadialGradient,
   Stop,
   G,
+  Rect,
+  Ellipse,
   Filter,
-  FeGaussianBlur
+  FeGaussianBlur,
 } from 'react-native-svg';
 import { getShadowStyle } from '../theme/colors';
+import HapticService from '../services/HapticService';
 
 const { width } = Dimensions.get('window');
-const BUTTON_SIZE = width * 0.32;
-const CIGARETTE_LENGTH = BUTTON_SIZE * 0.65;
-const CIGARETTE_WIDTH = CIGARETTE_LENGTH * 0.07; // Even thinner for more realistic look
+const BUTTON_SIZE = width * 0.28;
 
 const AnimatedG = Animated.createAnimatedComponent(G);
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
-const AnimatedPath = Animated.createAnimatedComponent(Path);
 
-const CigaretteButton = ({ onPress, theme }) => {
+const CigaretteButton = ({ onPress, theme, disabled = false }) => {
+  const [isLit, setIsLit] = useState(false);
   const scaleAnim = useRef(new Animated.Value(1)).current;
-  const glowAnim = useRef(new Animated.Value(0.3)).current;
-  const ashAnim = useRef(new Animated.Value(0)).current;
+  const emberAnim = useRef(new Animated.Value(0)).current;
   const smokeAnims = useRef([
-    {
-      opacity: new Animated.Value(0),
-      translateY: new Animated.Value(0),
-      scale: new Animated.Value(0.3),
-      path: new Animated.Value(0),
-    },
-    {
-      opacity: new Animated.Value(0),
-      translateY: new Animated.Value(0),
-      scale: new Animated.Value(0.3),
-      path: new Animated.Value(0),
-    },
-    {
-      opacity: new Animated.Value(0),
-      translateY: new Animated.Value(0),
-      scale: new Animated.Value(0.3),
-      path: new Animated.Value(0),
-    },
+    new Animated.Value(0),
+    new Animated.Value(0),
+    new Animated.Value(0),
   ]).current;
 
-  // Continuous ember glow
-  useEffect(() => {
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(glowAnim, {
-          toValue: 0.8,
-          duration: 800,
-          useNativeDriver: false,
-        }),
-        Animated.timing(glowAnim, {
-          toValue: 0.3,
-          duration: 1200,
-          useNativeDriver: false,
-        }),
-      ])
-    ).start();
-  }, [glowAnim]);
-
   const handlePress = () => {
+    if (disabled) {
+      HapticService.warning();
+      return;
+    }
+    
+    HapticService.medium();
     onPress();
     
     // Button press animation
@@ -82,278 +55,280 @@ const CigaretteButton = ({ onPress, theme }) => {
         duration: 100,
         useNativeDriver: true,
       }),
-      Animated.timing(scaleAnim, {
+      Animated.spring(scaleAnim, {
         toValue: 1,
-        duration: 100,
+        tension: 30,
+        friction: 5,
         useNativeDriver: true,
       }),
     ]).start();
 
-    // Ash falling animation
+    // Light up the cigarette
+    setIsLit(true);
+    
+    // Ember animation
     Animated.sequence([
-      Animated.timing(ashAnim, {
+      Animated.timing(emberAnim, {
         toValue: 1,
-        duration: 300,
+        duration: 500,
         useNativeDriver: false,
       }),
-      Animated.timing(ashAnim, {
+      Animated.timing(emberAnim, {
+        toValue: 0.7,
+        duration: 4500,
+        useNativeDriver: false,
+      }),
+      Animated.timing(emberAnim, {
         toValue: 0,
-        duration: 700,
+        duration: 200,
         useNativeDriver: false,
       }),
-    ]).start();
+    ]).start(() => setIsLit(false));
 
-    // Reset smoke animations
-    smokeAnims.forEach(anim => {
-      anim.opacity.setValue(0);
-      anim.translateY.setValue(0);
-      anim.scale.setValue(0.3);
-      anim.path.setValue(0);
-    });
-
-    // Realistic smoke animations
+    // Smoke animations
     smokeAnims.forEach((anim, index) => {
+      anim.setValue(0);
       Animated.sequence([
-        Animated.delay(index * 1000),
-        Animated.parallel([
-          // Opacity
-          Animated.sequence([
-            Animated.timing(anim.opacity, {
-              toValue: 0.4,
-              duration: 1000,
-              useNativeDriver: false,
-            }),
-            Animated.timing(anim.opacity, {
-              toValue: 0,
-              duration: 3000,
-              useNativeDriver: false,
-            }),
-          ]),
-          // Rise
-          Animated.timing(anim.translateY, {
-            toValue: -CIGARETTE_LENGTH * 0.8,
-            duration: 4000,
-            useNativeDriver: false,
-          }),
-          // Expand
-          Animated.timing(anim.scale, {
-            toValue: 2,
-            duration: 4000,
-            useNativeDriver: false,
-          }),
-          // Path sway
-          Animated.timing(anim.path, {
-            toValue: 1,
-            duration: 4000,
-            useNativeDriver: false,
-          }),
-        ]),
+        Animated.delay(index * 800),
+        Animated.timing(anim, {
+          toValue: 1,
+          duration: 4000 - (index * 500),
+          useNativeDriver: false,
+        }),
       ]).start();
     });
   };
 
-  const shadowStyle = getShadowStyle(theme, 'convex', 0.6);
+  const shadowStyle = getShadowStyle(theme, 'convex', 0.7);
 
   return (
     <View style={styles.container}>
       <Animated.View
         style={[
+          styles.floatingContainer,
+          {
+            transform: [{ scale: scaleAnim }],
+          },
+        ]}
+      >
+        <View style={[
           styles.buttonContainer,
           {
             backgroundColor: theme.background,
-            transform: [{ scale: scaleAnim }],
+            opacity: disabled ? 0.4 : 1,
           },
           shadowStyle,
-        ]}
-      >
-        <TouchableOpacity
-          onPress={handlePress}
-          activeOpacity={1}
-          style={styles.button}
-        >
-          <Svg
-            width={BUTTON_SIZE}
-            height={BUTTON_SIZE}
-            viewBox={`0 0 ${BUTTON_SIZE} ${BUTTON_SIZE}`}
+        ]}>
+          <TouchableOpacity
+            onPress={handlePress}
+            activeOpacity={0.8}
+            disabled={disabled}
+            style={styles.button}
           >
-            <Defs>
-              {/* Filter gradient */}
-              <LinearGradient id="filterGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-                <Stop offset="0%" stopColor="#FFA500" />
-                <Stop offset="30%" stopColor="#FF8C00" />
-                <Stop offset="100%" stopColor="#D2691E" />
-              </LinearGradient>
-              
-              {/* Paper gradient */}
-              <LinearGradient id="paperGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-                <Stop offset="0%" stopColor="#FAFAFA" />
-                <Stop offset="100%" stopColor="#E8E8E8" />
-              </LinearGradient>
-              
-              {/* Ember gradient */}
-              <RadialGradient id="emberGradient" cx="50%" cy="50%">
-                <Stop offset="0%" stopColor="#FF4500" stopOpacity="1" />
-                <Stop offset="30%" stopColor="#FF6347" stopOpacity="0.8" />
-                <Stop offset="60%" stopColor="#FF7F50" stopOpacity="0.4" />
-                <Stop offset="100%" stopColor="#FFA07A" stopOpacity="0" />
-              </RadialGradient>
+            <Svg
+              width={BUTTON_SIZE * 0.8}
+              height={BUTTON_SIZE * 0.4}
+              viewBox="0 0 200 80"
+            >
+              <Defs>
+                {/* Filter gradient - orange tones */}
+                <LinearGradient id="filterGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                  <Stop offset="0%" stopColor="#D4A574" />
+                  <Stop offset="30%" stopColor="#C19660" />
+                  <Stop offset="70%" stopColor="#B8885C" />
+                  <Stop offset="100%" stopColor="#A67C52" />
+                </LinearGradient>
+                
+                {/* Paper gradient - white with subtle texture */}
+                <LinearGradient id="paperGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                  <Stop offset="0%" stopColor="#F8F8F8" />
+                  <Stop offset="20%" stopColor="#FAFAFA" />
+                  <Stop offset="80%" stopColor="#F5F5F5" />
+                  <Stop offset="100%" stopColor="#EEEEEE" />
+                </LinearGradient>
+                
+                {/* Burning gradient */}
+                <RadialGradient id="burningGrad" cx="50%" cy="50%">
+                  <Stop offset="0%" stopColor="#FF4500" stopOpacity="1" />
+                  <Stop offset="30%" stopColor="#FF6347" stopOpacity="0.8" />
+                  <Stop offset="60%" stopColor="#FFA500" stopOpacity="0.4" />
+                  <Stop offset="100%" stopColor="#FFD700" stopOpacity="0" />
+                </RadialGradient>
 
-              {/* Smoke blur */}
-              <Filter id="smokeBlur">
-                <FeGaussianBlur stdDeviation="2" />
-              </Filter>
-            </Defs>
+                {/* Ash gradient */}
+                <LinearGradient id="ashGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                  <Stop offset="0%" stopColor="#666666" />
+                  <Stop offset="50%" stopColor="#808080" />
+                  <Stop offset="100%" stopColor="#999999" />
+                </LinearGradient>
 
-            {/* Cigarette positioned vertically in center */}
-            <G transform={`translate(${BUTTON_SIZE / 2}, ${BUTTON_SIZE / 2})`}>
-              {/* Shadow */}
-              <Rect
-                x={2}
-                y={-CIGARETTE_LENGTH / 2 + 2}
-                width={CIGARETTE_WIDTH}
-                height={CIGARETTE_LENGTH}
-                rx={CIGARETTE_WIDTH / 2}
-                fill={theme.shadow.dark}
-                opacity={0.2}
-              />
-              
-              {/* Filter (bottom part) */}
-              <Rect
-                x={-CIGARETTE_WIDTH / 2}
-                y={CIGARETTE_LENGTH / 2 - CIGARETTE_LENGTH * 0.25}
-                width={CIGARETTE_WIDTH}
-                height={CIGARETTE_LENGTH * 0.25}
-                rx={CIGARETTE_WIDTH / 2}
-                fill="url(#filterGradient)"
-              />
-              
-              {/* Filter cork pattern */}
-              <Circle
-                cx={0}
-                cy={CIGARETTE_LENGTH / 2 - CIGARETTE_LENGTH * 0.15}
-                r={CIGARETTE_WIDTH * 0.15}
-                fill="#D2691E"
-                opacity={0.3}
-              />
-              <Circle
-                cx={CIGARETTE_WIDTH * 0.2}
-                cy={CIGARETTE_LENGTH / 2 - CIGARETTE_LENGTH * 0.08}
-                r={CIGARETTE_WIDTH * 0.1}
-                fill="#8B4513"
-                opacity={0.2}
-              />
-              
-              {/* Paper (main body) */}
-              <Rect
-                x={-CIGARETTE_WIDTH / 2}
-                y={-CIGARETTE_LENGTH / 2}
-                width={CIGARETTE_WIDTH}
-                height={CIGARETTE_LENGTH * 0.75}
-                fill="url(#paperGradient)"
-              />
-              
-              {/* Paper texture lines */}
-              <Rect
-                x={-CIGARETTE_WIDTH / 2 + 1}
-                y={-CIGARETTE_LENGTH / 2 + 5}
-                width={CIGARETTE_WIDTH - 2}
-                height={0.5}
-                fill="#DDD"
-              />
-              
-              {/* Burning area */}
-              <G transform={`translate(0, ${-CIGARETTE_LENGTH / 2})`}>
-                {/* Ash */}
-                <AnimatedCircle
+                <Filter id="blurFilter">
+                  <FeGaussianBlur stdDeviation="1.5" />
+                </Filter>
+              </Defs>
+
+              {/* Main cigarette body */}
+              <G transform="translate(100, 40)">
+                {/* Shadow underneath */}
+                <Ellipse
                   cx={0}
-                  cy={ashAnim.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [0, 10],
-                  })}
-                  r={CIGARETTE_WIDTH / 2}
-                  fill="#666"
-                  opacity={ashAnim.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [0.8, 0],
-                  })}
+                  cy={8}
+                  rx={85}
+                  ry={3}
+                  fill={theme.shadow.dark}
+                  opacity={0.15}
                 />
                 
-                {/* Ember glow */}
-                <AnimatedCircle
-                  cx={0}
-                  cy={0}
-                  r={glowAnim.interpolate({
-                    inputRange: [0.3, 0.8],
-                    outputRange: [CIGARETTE_WIDTH * 0.8, CIGARETTE_WIDTH * 1.2],
-                  })}
-                  fill="url(#emberGradient)"
-                  opacity={glowAnim}
+                {/* Paper body */}
+                <Rect
+                  x={-80}
+                  y={-12}
+                  width={120}
+                  height={24}
+                  rx={12}
+                  fill="url(#paperGrad)"
                 />
                 
-                {/* Ember core */}
-                <Circle
-                  cx={0}
-                  cy={0}
-                  r={CIGARETTE_WIDTH * 0.4}
-                  fill="#FF0000"
-                  opacity={0.9}
+                {/* Paper texture lines */}
+                <G opacity={0.05}>
+                  <Path d="M-60,-8 L40,-8" stroke="#CCC" strokeWidth="0.5" />
+                  <Path d="M-60,0 L40,0" stroke="#CCC" strokeWidth="0.5" />
+                  <Path d="M-60,8 L40,8" stroke="#CCC" strokeWidth="0.5" />
+                </G>
+                
+                {/* Filter (right side) */}
+                <Rect
+                  x={40}
+                  y={-12}
+                  width={40}
+                  height={24}
+                  rx={12}
+                  fill="url(#filterGrad)"
                 />
+                
+                {/* Filter cork texture dots */}
+                <G opacity={0.3}>
+                  <Circle cx={50} cy={-6} r={1.5} fill="#A0522D" />
+                  <Circle cx={55} cy={-3} r={1} fill="#8B4513" />
+                  <Circle cx={52} cy={0} r={1.2} fill="#A0522D" />
+                  <Circle cx={58} cy={2} r={1} fill="#8B4513" />
+                  <Circle cx={54} cy={5} r={1.3} fill="#A0522D" />
+                  <Circle cx={60} cy={-4} r={1} fill="#8B4513" />
+                  <Circle cx={65} cy={0} r={1.2} fill="#A0522D" />
+                  <Circle cx={62} cy={4} r={1} fill="#8B4513" />
+                  <Circle cx={70} cy={-2} r={1.1} fill="#A0522D" />
+                </G>
+                
+                {/* Filter brand lines */}
+                <Rect x={45} y={-12} width={1} height={24} fill="#9B7653" opacity={0.2} />
+                <Rect x={70} y={-12} width={1} height={24} fill="#9B7653" opacity={0.2} />
+                
+                {/* Burning end (left side) - only visible when lit */}
+                {isLit && (
+                  <G transform="translate(-80, 0)">
+                    {/* Ash */}
+                    <AnimatedG opacity={emberAnim}>
+                      <Rect
+                        x={-8}
+                        y={-8}
+                        width={8}
+                        height={16}
+                        rx={4}
+                        fill="url(#ashGrad)"
+                        opacity={0.8}
+                      />
+                      
+                      {/* Glowing ember */}
+                      <AnimatedCircle
+                        cx={-4}
+                        cy={0}
+                        r={emberAnim.interpolate({
+                          inputRange: [0, 0.7, 1],
+                          outputRange: [0, 12, 16],
+                        })}
+                        fill="url(#burningGrad)"
+                        opacity={emberAnim.interpolate({
+                          inputRange: [0, 0.7, 1],
+                          outputRange: [0, 0.8, 1],
+                        })}
+                      />
+                      
+                      {/* Hot center */}
+                      <Circle cx={-4} cy={0} r={4} fill="#FF2200" opacity={0.9} />
+                      <Circle cx={-4} cy={0} r={2} fill="#FF0000" />
+                    </AnimatedG>
+                  </G>
+                )}
+                
+                {/* Smoke wisps */}
+                {isLit && smokeAnims.map((anim, index) => (
+                  <AnimatedG
+                    key={index}
+                    opacity={anim.interpolate({
+                      inputRange: [0, 0.3, 0.7, 1],
+                      outputRange: [0, 0.6, 0.3, 0],
+                    })}
+                    transform={[
+                      {
+                        translateX: -80 + anim.interpolate({
+                          inputRange: [0, 1],
+                          outputRange: [0, -20 + (index * 10)],
+                        })
+                      },
+                      {
+                        translateY: anim.interpolate({
+                          inputRange: [0, 1],
+                          outputRange: [0, -40 - (index * 10)],
+                        })
+                      },
+                    ]}
+                  >
+                    <Path
+                      d={`M0,0 Q-5,${-10 - index * 5} -3,${-20 - index * 5} T-5,${-35 - index * 5}`}
+                      stroke={theme.text.tertiary}
+                      strokeWidth="3"
+                      fill="none"
+                      strokeLinecap="round"
+                      filter="url(#blurFilter)"
+                    />
+                    <Circle
+                      cx={-2}
+                      cy={-15}
+                      r={4 + index * 2}
+                      fill={theme.text.tertiary}
+                      opacity={0.2}
+                    />
+                  </AnimatedG>
+                ))}
               </G>
-            </G>
-
-            {/* Smoke wisps */}
-            {smokeAnims.map((anim, index) => {
-              const swayX = anim.path.interpolate({
-                inputRange: [0, 0.25, 0.5, 0.75, 1],
-                outputRange: [0, 10, -5, 8, 0],
-              });
-
-              return (
-                <AnimatedG
-                  key={index}
-                  transform={[
-                    { translateX: BUTTON_SIZE / 2 + swayX },
-                    { translateY: BUTTON_SIZE / 2 - CIGARETTE_LENGTH / 2 + anim.translateY },
-                    { scale: anim.scale },
-                  ]}
-                  opacity={anim.opacity}
-                >
-                  <Path
-                    d={`M0,0 Q${5 + index * 3},${-10} ${3 + index * 2},${-20} T${5},${-35}`}
-                    fill="none"
-                    stroke={theme.text.tertiary}
-                    strokeWidth="8"
-                    strokeLinecap="round"
-                    opacity={0.3}
-                    filter="url(#smokeBlur)"
-                  />
-                  <Circle
-                    cx={0}
-                    cy={-10}
-                    r={6}
-                    fill={theme.text.tertiary}
-                    opacity={0.2}
-                  />
-                </AnimatedG>
-              );
-            })}
-          </Svg>
-        </TouchableOpacity>
+            </Svg>
+            
+            {/* Professional label */}
+            <Text style={[styles.buttonLabel, { color: theme.text.tertiary }]}>
+              {disabled ? 'LIMIT REACHED' : 'TAP TO LOG'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+        
+        {/* Subtle floating shadow */}
+        <Animated.View
+          style={[
+            styles.floatingShadow,
+            {
+              backgroundColor: theme.shadow.dark,
+              opacity: 0.06,
+              transform: [
+                {
+                  scale: scaleAnim.interpolate({
+                    inputRange: [0.95, 1],
+                    outputRange: [0.8, 1],
+                  }),
+                },
+              ],
+            },
+          ]}
+        />
       </Animated.View>
-      
-      {/* Inner shadow for depth */}
-      <View
-        style={[
-          styles.innerShadow,
-          {
-            backgroundColor: 'transparent',
-            borderColor: theme.shadow.light,
-            borderWidth: 1.5,
-            opacity: 0.2,
-          },
-        ]}
-        pointerEvents="none"
-      />
     </View>
   );
 };
@@ -361,7 +336,10 @@ const CigaretteButton = ({ onPress, theme }) => {
 const styles = StyleSheet.create({
   container: {
     alignItems: 'center',
-    marginVertical: 30,
+    marginVertical: 20,
+  },
+  floatingContainer: {
+    position: 'relative',
   },
   buttonContainer: {
     width: BUTTON_SIZE,
@@ -369,7 +347,7 @@ const styles = StyleSheet.create({
     borderRadius: BUTTON_SIZE / 2,
     justifyContent: 'center',
     alignItems: 'center',
-    overflow: 'hidden',
+    overflow: 'visible',
   },
   button: {
     width: '100%',
@@ -377,12 +355,19 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  innerShadow: {
+  buttonLabel: {
+    marginTop: 12,
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 1.2,
+  },
+  floatingShadow: {
     position: 'absolute',
-    width: BUTTON_SIZE - 4,
-    height: BUTTON_SIZE - 4,
-    borderRadius: (BUTTON_SIZE - 4) / 2,
-    top: 2,
+    bottom: -6,
+    left: BUTTON_SIZE * 0.15,
+    right: BUTTON_SIZE * 0.15,
+    height: 12,
+    borderRadius: 6,
   },
 });
 

@@ -10,6 +10,7 @@ import {
   StatusBar,
   Animated,
   Dimensions,
+  Alert,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import StorageService from '../services/StorageService';
@@ -38,12 +39,14 @@ const HomeScreen = () => {
     average: '0',
     trendPercentage: 0,
   });
+  const [streak, setStreak] = useState(0);
 
   const theme = getTheme(isDarkMode);
   const scrollY = useRef(new Animated.Value(0)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const todayFadeAnim = useRef(new Animated.Value(0.5)).current;
   const progressAnim = useRef(new Animated.Value(1)).current;
+  const streakAnim = useRef(new Animated.Value(0)).current;
 
   const todayCount = smokingData[getToday()] || 0;
   const remainingToday = Math.max(0, dailyLimit - todayCount);
@@ -120,12 +123,58 @@ const HomeScreen = () => {
       // Set initial display count
       const today = getToday();
       setDisplayCount((data && data[today]) || 0);
+      
+      // Calculate streak
+      calculateStreak(data || {}, limit || DEFAULT_DAILY_LIMIT);
     } catch (error) {
       console.error('Error loading data:', error);
+      
+      // Set fallback values
       setSmokingData({});
       setDailyLimit(DEFAULT_DAILY_LIMIT);
       setIsDarkMode(false);
       setLastSmokeTime(null);
+      
+      // Show user-friendly error message
+      Alert.alert(
+        'Loading Error',
+        'There was an issue loading your data. The app will continue with default settings.',
+        [{ text: 'OK' }]
+      );
+    }
+  };
+
+  const calculateStreak = (data, limit) => {
+    let streakCount = 0;
+    const today = new Date();
+    
+    for (let i = 0; i < 30; i++) { // Check last 30 days
+      const date = new Date(today);
+      date.setDate(date.getDate() - i);
+      const dateStr = date.toISOString().split('T')[0];
+      
+      if (i === 0 && (data[dateStr] || 0) >= limit) {
+        // Today already over limit, streak is 0
+        break;
+      }
+      
+      if (i > 0 && (!data[dateStr] || data[dateStr] < limit)) {
+        streakCount++;
+      } else if (i > 0) {
+        break;
+      }
+    }
+    
+    setStreak(streakCount);
+    
+    // Animate streak appearance
+    if (streakCount > 0) {
+      Animated.spring(streakAnim, {
+        toValue: 1,
+        tension: 30,
+        friction: 8,
+        useNativeDriver: true,
+      }).start();
     }
   };
 
@@ -135,19 +184,33 @@ const HomeScreen = () => {
       const today = getToday();
       const newCount = await StorageService.incrementTodayCount(today);
       
-      if (newCount > dailyLimit) {
+      if (newCount === dailyLimit) {
+        // Just reached limit
+        HapticService.warning();
+      } else if (newCount > dailyLimit) {
+        // Over limit
         HapticService.warning();
       }
       
-      setSmokingData(prev => ({
-        ...prev,
+      const newData = {
+        ...smokingData,
         [today]: newCount,
-      }));
+      };
+      
+      setSmokingData(newData);
       
       const newLastTime = new Date().toISOString();
       setLastSmokeTime(newLastTime);
+      
+      // Recalculate streak
+      calculateStreak(newData, dailyLimit);
     } catch (error) {
       console.error('Error logging cigarette:', error);
+      Alert.alert(
+        'Error',
+        'Failed to log cigarette. Please try again.',
+        [{ text: 'OK' }]
+      );
     }
   };
 
@@ -158,6 +221,11 @@ const HomeScreen = () => {
       setShowLimitModal(false);
     } catch (error) {
       console.error('Error saving limit:', error);
+      Alert.alert(
+        'Error',
+        'Failed to save daily limit. Please try again.',
+        [{ text: 'OK' }]
+      );
     }
   };
 
@@ -169,6 +237,11 @@ const HomeScreen = () => {
       await StorageService.saveThemeMode(newMode);
     } catch (error) {
       console.error('Error toggling theme:', error);
+      Alert.alert(
+        'Error',
+        'Failed to change theme. Please try again.',
+        [{ text: 'OK' }]
+      );
     }
   };
 
@@ -178,9 +251,52 @@ const HomeScreen = () => {
       await loadData();
     } catch (error) {
       console.error('Error refreshing:', error);
+      Alert.alert(
+        'Refresh Error',
+        'Failed to refresh data. Please try again.',
+        [{ text: 'OK' }]
+      );
     } finally {
       setRefreshing(false);
     }
+  };
+
+  const getMotivationalMessage = () => {
+    const hour = new Date().getHours();
+    const progress = (remainingToday / dailyLimit) * 100;
+    
+    // Time-based messages
+    if (hour < 12) {
+      if (todayCount === 0) return "Start your day smoke-free";
+      if (progress > 50) return "Great morning discipline";
+      return "Each choice shapes your day";
+    } else if (hour < 17) {
+      if (progress > 70) return "You're crushing it today";
+      if (progress > 30) return "Stay strong this afternoon";
+      return "Every cigarette counts";
+    } else {
+      if (progress > 50) return "Finish strong today";
+      if (progress > 0) return "You can still make today count";
+      return "Tomorrow is a new opportunity";
+    }
+  };
+
+  const getDailyLimitQuote = () => {
+    const quotes = [
+      { quote: "The secret of change is to focus all of your energy not on fighting the old, but on building the new.", author: "Socrates" },
+      { quote: "It's not about being perfect. It's about being better than yesterday.", author: "Unknown" },
+      { quote: "Your limitation—it's only your imagination.", author: "Unknown" },
+      { quote: "Great things never come from comfort zones.", author: "Unknown" },
+      { quote: "Don't wait for opportunity. Create it.", author: "Unknown" },
+      { quote: "The only impossible journey is the one you never begin.", author: "Tony Robbins" },
+      { quote: "Success is the sum of small efforts repeated day in and day out.", author: "Robert Collier" },
+      { quote: "You are stronger than you think.", author: "Unknown" },
+    ];
+    
+    // Use date and month for better seed variation (changes daily)
+    const now = new Date();
+    const seed = now.getDate() + (now.getMonth() * 31) + now.getFullYear();
+    return quotes[seed % quotes.length];
   };
 
   const getProgressBarColor = () => {
@@ -274,6 +390,33 @@ const HomeScreen = () => {
                 }]
               }
             ]}>
+              {/* Streak indicator */}
+              {streak >= 3 && (
+                <Animated.View style={[
+                  styles.streakContainer,
+                  {
+                    opacity: streakAnim,
+                    transform: [{
+                      scale: streakAnim.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [0.8, 1],
+                      })
+                    }]
+                  }
+                ]}>
+                  <LinearGradient
+                    colors={[theme.success, '#2ECC71']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={styles.streakGradient}
+                  >
+                    <Text style={styles.streakText}>
+                      {streak} DAY STREAK
+                    </Text>
+                  </LinearGradient>
+                </Animated.View>
+              )}
+              
               <Text style={[styles.todayLabel, { color: theme.text.secondary }]}>
                 TODAY
               </Text>
@@ -306,6 +449,11 @@ const HomeScreen = () => {
                   {remainingToday} remaining of {dailyLimit} daily limit
                 </Text>
               </View>
+              
+              {/* Motivational message */}
+              <Text style={[styles.motivationalText, { color: theme.text.secondary }]}>
+                {getMotivationalMessage()}
+              </Text>
             </Animated.View>
 
             {/* Cigarette Button */}
@@ -383,6 +531,43 @@ const HomeScreen = () => {
               </Text>
               <WeeklyChart smokingData={smokingData} theme={theme} />
             </View>
+
+            {/* Daily Limit Reached Section */}
+            {todayCount >= dailyLimit && (
+              <Animated.View style={[
+                styles.limitReachedSection,
+                {
+                  opacity: fadeAnim,
+                  transform: [{
+                    translateY: fadeAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [20, 0],
+                    })
+                  }]
+                }
+              ]}>
+                <View style={[styles.quoteCard, getShadowStyle(theme, 'concave', 0.4)]}>
+                  <LinearGradient
+                    colors={isDarkMode ? ['#2C2D3A', '#1F2029'] : ['#FFFFFF', '#FAFAFA']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 0, y: 1 }}
+                    style={styles.quoteGradient}
+                  >
+                    <View style={styles.quoteHeader}>
+                      <View style={[styles.quoteMark, { backgroundColor: theme.accent }]}>
+                        <Text style={styles.quoteMarkText}>"</Text>
+                      </View>
+                    </View>
+                    <Text style={[styles.quoteText, { color: theme.text.primary }]}>
+                      {getDailyLimitQuote().quote}
+                    </Text>
+                    <Text style={[styles.quoteAuthor, { color: theme.text.secondary }]}>
+                      — {getDailyLimitQuote().author}
+                    </Text>
+                  </LinearGradient>
+                </View>
+              </Animated.View>
+            )}
 
             <View style={styles.bottomSpacer} />
           </Animated.ScrollView>
@@ -577,6 +762,45 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     letterSpacing: -0.5,
     marginBottom: 20,
+  },
+  limitReachedSection: {
+    paddingHorizontal: 24,
+    marginBottom: 30,
+  },
+  quoteCard: {
+    borderRadius: 20,
+    overflow: 'hidden',
+  },
+  quoteGradient: {
+    padding: 24,
+  },
+  quoteHeader: {
+    marginBottom: 16,
+  },
+  quoteMark: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  quoteMarkText: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  quoteText: {
+    fontSize: 18,
+    fontWeight: '500',
+    lineHeight: 26,
+    marginBottom: 12,
+    letterSpacing: 0.3,
+  },
+  quoteAuthor: {
+    fontSize: 14,
+    fontWeight: '600',
+    letterSpacing: 0.5,
+    opacity: 0.8,
   },
   bottomSpacer: {
     height: 40,

@@ -3,44 +3,80 @@ import { Platform } from 'react-native';
 
 class HapticService {
   // Light impact for button presses
-  light() {
-    if (Platform.OS === 'ios') {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  async light() {
+    try {
+      if (Platform.OS === 'ios') {
+        await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      } else if (Platform.OS === 'android') {
+        await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      }
+    } catch (error) {
+      console.log('Haptic feedback not available');
     }
   }
 
   // Medium impact for logging cigarette
-  medium() {
-    if (Platform.OS === 'ios') {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+  async medium() {
+    try {
+      if (Platform.OS === 'ios') {
+        await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      } else if (Platform.OS === 'android') {
+        await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      }
+    } catch (error) {
+      console.log('Haptic feedback not available');
     }
   }
 
   // Heavy impact for achievements
-  heavy() {
-    if (Platform.OS === 'ios') {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+  async heavy() {
+    try {
+      if (Platform.OS === 'ios') {
+        await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+      } else if (Platform.OS === 'android') {
+        await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+      }
+    } catch (error) {
+      console.log('Haptic feedback not available');
     }
   }
 
   // Success notification
-  success() {
-    if (Platform.OS === 'ios') {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  async success() {
+    try {
+      if (Platform.OS === 'ios') {
+        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      } else if (Platform.OS === 'android') {
+        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      }
+    } catch (error) {
+      console.log('Haptic feedback not available');
     }
   }
 
   // Warning notification
-  warning() {
-    if (Platform.OS === 'ios') {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+  async warning() {
+    try {
+      if (Platform.OS === 'ios') {
+        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      } else if (Platform.OS === 'android') {
+        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      }
+    } catch (error) {
+      console.log('Haptic feedback not available');
     }
   }
 
   // Selection changed
-  selection() {
-    if (Platform.OS === 'ios') {
-      Haptics.selectionAsync();
+  async selection() {
+    try {
+      if (Platform.OS === 'ios') {
+        await Haptics.selectionAsync();
+      } else if (Platform.OS === 'android') {
+        await Haptics.selectionAsync();
+      }
+    } catch (error) {
+      console.log('Haptic feedback not available');
     }
   }
 }

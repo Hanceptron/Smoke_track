@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { AppState } from 'react-native';
-import HomeScreen from './src/screens/Homescreen.js';
+import HomeScreen from './src/screens/Homescreen';
 
 export default function App() {
   useEffect(() => {
