@@ -83,7 +83,15 @@ const saveThemeMode = async (isDark) => {
 const getLastSmokeTime = async () => {
   try {
     const time = await AsyncStorage.getItem(LAST_SMOKE_TIME_KEY);
-    return time ? new Date(time) : null;
+    if (!time) return null;
+    
+    // Try to parse the time, but handle potential errors
+    try {
+      return new Date(time);
+    } catch (parseError) {
+      console.error('Error parsing last smoke time:', parseError);
+      return null;
+    }
   } catch (error) {
     console.error('Error getting last smoke time:', error);
     return null;

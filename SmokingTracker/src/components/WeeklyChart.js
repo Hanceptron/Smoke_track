@@ -63,6 +63,17 @@ const WeeklyChart = ({ smokingData, theme }) => {
   return (
     <View style={styles.container}>
       <Svg width={CHART_WIDTH} height={CHART_HEIGHT} style={styles.svg}>
+        {/* Background */}
+        <Rect
+          x={0}
+          y={0}
+          width={CHART_WIDTH}
+          height={CHART_HEIGHT}
+          fill={theme.colors.surface}
+          opacity={0.1}
+          rx={8}
+        />
+        
         {/* Grid lines */}
         {[0, 1, 2, 3, 4].map((i) => {
           const y = CHART_HEIGHT - 40 - (i * MAX_BAR_HEIGHT / 4);
@@ -73,18 +84,18 @@ const WeeklyChart = ({ smokingData, theme }) => {
                 y1={y}
                 x2={CHART_WIDTH - 20}
                 y2={y}
-                stroke={theme.text.tertiary}
-                strokeWidth="0.5"
-                strokeDasharray="3 3"
-                opacity={0.2}
+                stroke={theme.colors.text.tertiary}
+                strokeWidth="1"
+                strokeDasharray="4 4"
+                opacity={0.3}
               />
               <SvgText
-                x={10}
+                x={12}
                 y={y + 4}
-                fontSize="10"
-                fill={theme.text.tertiary}
+                fontSize={theme.fontSizes.xs}
+                fill={theme.colors.text.tertiary}
                 textAnchor="end"
-                opacity={0.5}
+                opacity={0.7}
               >
                 {Math.round((i * maxValue) / 4)}
               </SvgText>
@@ -111,8 +122,10 @@ const WeeklyChart = ({ smokingData, theme }) => {
                 width={BAR_WIDTH}
                 height={Animated.multiply(barAnimations[index], barHeight)}
                 rx={BAR_WIDTH / 4}
-                fill={day.isToday ? theme.accent : theme.text.tertiary}
-                opacity={day.isToday ? 1 : 0.3}
+                fill={day.isToday ? theme.colors.accent : 
+                      value === 0 ? theme.colors.success : 
+                      value > 5 ? theme.colors.warning : theme.colors.primary}
+                opacity={day.isToday ? 1 : 0.8}
               />
               
               {/* Value label */}
@@ -120,9 +133,9 @@ const WeeklyChart = ({ smokingData, theme }) => {
                 <SvgText
                   x={x + BAR_WIDTH / 2}
                   y={y - 8}
-                  fontSize="12"
-                  fontWeight="600"
-                  fill={day.isToday ? theme.accent : theme.text.secondary}
+                  fontSize={theme.fontSizes.xs}
+                  fontWeight={theme.fontWeights.semibold}
+                  fill={day.isToday ? theme.colors.accent : theme.colors.text.secondary}
                   textAnchor="middle"
                 >
                   {value}
@@ -133,9 +146,9 @@ const WeeklyChart = ({ smokingData, theme }) => {
               <SvgText
                 x={x + BAR_WIDTH / 2}
                 y={CHART_HEIGHT - 20}
-                fontSize="12"
-                fontWeight={day.isToday ? "600" : "500"}
-                fill={day.isToday ? theme.text.primary : theme.text.secondary}
+                fontSize={theme.fontSizes.xs}
+                fontWeight={day.isToday ? theme.fontWeights.semibold : theme.fontWeights.medium}
+                fill={day.isToday ? theme.colors.text.primary : theme.colors.text.secondary}
                 textAnchor="middle"
               >
                 {day.dayName}
@@ -147,9 +160,9 @@ const WeeklyChart = ({ smokingData, theme }) => {
                   x={x}
                   y={CHART_HEIGHT - 15}
                   width={BAR_WIDTH}
-                  height={2}
-                  rx={1}
-                  fill={theme.accent}
+                  height={3}
+                  rx={1.5}
+                  fill={theme.colors.accent}
                 />
               )}
             </G>

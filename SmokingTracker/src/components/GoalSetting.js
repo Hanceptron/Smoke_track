@@ -71,8 +71,7 @@ const GoalSetting = ({ visible, currentGoal, onSave, onCancel, theme }) => {
     });
   };
 
-  const shadowStyle = getShadowStyle(theme, 'convex', 1.2);
-  const buttonShadow = getShadowStyle(theme, 'flat', 0.6);
+  const shadowStyle = getShadowStyle(theme, 1.2);
 
   return (
     <Modal
@@ -92,17 +91,17 @@ const GoalSetting = ({ visible, currentGoal, onSave, onCancel, theme }) => {
             { transform: [{ scale: scaleAnim }] }
           ]}>
             <LinearGradient
-              colors={getGradientColors(theme, 'surface')}
+              colors={[theme.colors.surface, theme.colors.card]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
               style={styles.modalContent}
             >
               {/* Header */}
               <View style={styles.header}>
-                <Text style={[styles.title, { color: theme.text.primary }]}>
+                <Text style={[styles.title, { color: theme.colors.text.primary }]}>
                   Daily Limit
                 </Text>
-                <Text style={[styles.subtitle, { color: theme.text.secondary }]}>
+                <Text style={[styles.subtitle, { color: theme.colors.text.secondary }]}>
                   Set your maximum cigarettes for today
                 </Text>
               </View>
@@ -110,29 +109,29 @@ const GoalSetting = ({ visible, currentGoal, onSave, onCancel, theme }) => {
               {/* Input Container */}
               <View style={[
                 styles.inputWrapper,
-                { backgroundColor: theme.background }
+                { backgroundColor: theme.colors.background }
               ]}>
                 <View style={[
                   styles.inputContainer,
                   { 
-                    backgroundColor: theme.background,
-                    shadowColor: theme.shadow.dark,
+                    backgroundColor: theme.colors.background,
+                    shadowColor: theme.colors.shadow,
                     shadowOffset: { width: -4, height: -4 },
                     shadowOpacity: 0.1,
                     shadowRadius: 8,
                   }
                 ]}>
                   <TextInput
-                    style={[styles.input, { color: theme.text.primary }]}
+                    style={[styles.input, { color: theme.colors.text.primary }]}
                     value={tempLimit}
                     onChangeText={setTempLimit}
                     keyboardType="number-pad"
                     placeholder="10"
-                    placeholderTextColor={theme.text.tertiary}
+                    placeholderTextColor={theme.colors.text.tertiary}
                     autoFocus
                     selectTextOnFocus
                   />
-                  <Text style={[styles.unit, { color: theme.text.secondary }]}>
+                  <Text style={[styles.unit, { color: theme.colors.text.secondary }]}>
                     max today
                   </Text>
                 </View>
@@ -143,15 +142,15 @@ const GoalSetting = ({ visible, currentGoal, onSave, onCancel, theme }) => {
                 <TouchableOpacity
                   onPress={handleCancel}
                   activeOpacity={0.8}
-                  style={[styles.buttonWrapper, buttonShadow]}
+                  style={[styles.buttonWrapper, shadowStyle]}
                 >
                   <LinearGradient
-                    colors={getGradientColors(theme, 'button')}
+                    colors={[theme.colors.surface, theme.colors.card]}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 1 }}
                     style={styles.button}
                   >
-                    <Text style={[styles.buttonText, { color: theme.text.primary }]}>
+                    <Text style={[styles.buttonText, { color: theme.colors.text.primary }]}>
                       Cancel
                     </Text>
                   </LinearGradient>
@@ -160,10 +159,10 @@ const GoalSetting = ({ visible, currentGoal, onSave, onCancel, theme }) => {
                 <TouchableOpacity
                   onPress={handleSave}
                   activeOpacity={0.8}
-                  style={[styles.buttonWrapper, styles.saveButton, buttonShadow]}
+                  style={[styles.buttonWrapper, styles.saveButton, shadowStyle]}
                 >
                   <LinearGradient
-                    colors={theme.accentGradient}
+                    colors={[theme.colors.accent, '#FF8855']}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 1 }}
                     style={styles.button}
@@ -177,7 +176,7 @@ const GoalSetting = ({ visible, currentGoal, onSave, onCancel, theme }) => {
               
               {/* Motivational text */}
               <View style={styles.motivation}>
-                <Text style={[styles.motivationText, { color: theme.text.tertiary }]}>
+                <Text style={[styles.motivationText, { color: theme.colors.text.tertiary }]}>
                   Set a realistic limit and stick to it
                 </Text>
               </View>

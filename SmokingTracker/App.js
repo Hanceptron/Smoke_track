@@ -14,8 +14,18 @@ export default function App() {
 
     const subscription = AppState.addEventListener('change', handleAppStateChange);
     
+    // For newer React Native versions, add this fallback
+    let newSubscription;
+    if (!subscription) {
+      newSubscription = AppState.addEventListener('stateChange', handleAppStateChange);
+    }
+    
     return () => {
-      subscription?.remove();
+      if (subscription?.remove) {
+        subscription.remove();
+      } else if (newSubscription?.remove) {
+        newSubscription.remove();
+      }
     };
   }, []);
 

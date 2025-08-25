@@ -21,7 +21,8 @@ import StatCard from '../components/StatCard';
 import TimeSinceLastSmoke from '../components/TimeSinceLastSmoke';
 import GoalSetting from '../components/GoalSetting';
 import { getToday, getWeeklyStats } from '../utils/dateHelpers';
-import { getTheme, getShadowStyle, getGradientColors } from '../theme/colors';
+import { createTheme } from '../theme/theme';
+import { getShadowStyle, getGradientColors } from '../theme/colors';
 
 const { width } = Dimensions.get('window');
 const DEFAULT_DAILY_LIMIT = 10;
@@ -41,16 +42,16 @@ const HomeScreen = () => {
   });
   const [streak, setStreak] = useState(0);
 
-  const theme = getTheme(isDarkMode);
+  const theme = createTheme(isDarkMode);
   const scrollY = useRef(new Animated.Value(0)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const todayFadeAnim = useRef(new Animated.Value(0.5)).current;
   const progressAnim = useRef(new Animated.Value(1)).current;
   const streakAnim = useRef(new Animated.Value(0)).current;
 
-  const todayCount = smokingData[getToday()] || 0;
-  const remainingToday = Math.max(0, dailyLimit - todayCount);
-  const progressPercentage = Math.max(0, (remainingToday / dailyLimit) * 100);
+  const todayCount = (smokingData && smokingData[getToday()]) || 0;
+  const remainingToday = Math.max(0, (dailyLimit || DEFAULT_DAILY_LIMIT) - todayCount);
+  const progressPercentage = Math.max(0, (remainingToday / (dailyLimit || DEFAULT_DAILY_LIMIT)) * 100);
 
   useEffect(() => {
     loadData();
@@ -72,13 +73,13 @@ const HomeScreen = () => {
 
   useEffect(() => {
     // Update weekly stats
-    const stats = getWeeklyStats(smokingData, 999); // No weekly goal needed
+    const stats = getWeeklyStats(smokingData || {}, dailyLimit || DEFAULT_DAILY_LIMIT); // Fix: handle null data
     setWeeklyStats(stats);
     
     // Animate display count
     const animationDuration = 500;
     const startValue = displayCount;
-    const endValue = todayCount;
+    const endValue = todayCount || 0;
     const startTime = Date.now();
     
     const timer = setInterval(() => {
@@ -104,7 +105,7 @@ const HomeScreen = () => {
     }).start();
     
     return () => clearInterval(timer);
-  }, [smokingData, dailyLimit]);
+  }, [smokingData, dailyLimit, todayCount, progressPercentage]);
 
   const loadData = async () => {
     try {
@@ -145,36 +146,45 @@ const HomeScreen = () => {
   };
 
   const calculateStreak = (data, limit) => {
-    let streakCount = 0;
-    const today = new Date();
-    
-    for (let i = 0; i < 30; i++) { // Check last 30 days
-      const date = new Date(today);
-      date.setDate(date.getDate() - i);
-      const dateStr = date.toISOString().split('T')[0];
+    try {
+      let streakCount = 0;
+      const today = new Date();
       
-      if (i === 0 && (data[dateStr] || 0) >= limit) {
-        // Today already over limit, streak is 0
-        break;
+      for (let i = 0; i < 30; i++) { // Check last 30 days
+        const date = new Date(today);
+        date.setDate(date.getDate() - i);
+        const dateStr = date.toISOString().split('T')[0];
+        
+        // Handle cases where data or limit might be undefined
+        const currentData = data || {};
+        const currentLimit = limit || DEFAULT_DAILY_LIMIT;
+        
+        if (i === 0 && (currentData[dateStr] || 0) >= currentLimit) {
+          // Today already over limit, streak is 0
+          break;
+        }
+        
+        if (i > 0 && (!currentData[dateStr] || currentData[dateStr] < currentLimit)) {
+          streakCount++;
+        } else if (i > 0) {
+          break;
+        }
       }
       
-      if (i > 0 && (!data[dateStr] || data[dateStr] < limit)) {
-        streakCount++;
-      } else if (i > 0) {
-        break;
+      setStreak(streakCount);
+      
+      // Animate streak appearance
+      if (streakCount > 0) {
+        Animated.spring(streakAnim, {
+          toValue: 1,
+          tension: 30,
+          friction: 8,
+          useNativeDriver: true,
+        }).start();
       }
-    }
-    
-    setStreak(streakCount);
-    
-    // Animate streak appearance
-    if (streakCount > 0) {
-      Animated.spring(streakAnim, {
-        toValue: 1,
-        tension: 30,
-        friction: 8,
-        useNativeDriver: true,
-      }).start();
+    } catch (error) {
+      console.error('Error calculating streak:', error);
+      setStreak(0);
     }
   };
 
@@ -192,8 +202,9 @@ const HomeScreen = () => {
         HapticService.warning();
       }
       
+      // Safely update the data
       const newData = {
-        ...smokingData,
+        ...(smokingData || {}),
         [today]: newCount,
       };
       
@@ -203,7 +214,7 @@ const HomeScreen = () => {
       setLastSmokeTime(newLastTime);
       
       // Recalculate streak
-      calculateStreak(newData, dailyLimit);
+      calculateStreak(newData, dailyLimit || DEFAULT_DAILY_LIMIT);
     } catch (error) {
       console.error('Error logging cigarette:', error);
       Alert.alert(
@@ -300,9 +311,9 @@ const HomeScreen = () => {
   };
 
   const getProgressBarColor = () => {
-    if (progressPercentage > 50) return theme.success;
-    if (progressPercentage > 20) return theme.warning;
-    return theme.danger;
+    if (progressPercentage > 50) return theme.colors.success;
+    if (progressPercentage > 20) return theme.colors.warning;
+    return theme.colors.danger;
   };
 
   const headerOpacity = scrollY.interpolate({
@@ -313,8 +324,8 @@ const HomeScreen = () => {
 
   return (
     <>
-      <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
-      <View style={[styles.container, { backgroundColor: theme.background }]}>
+      <StatusBar barStyle="light-content" />
+      <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
         <SafeAreaView style={styles.safeArea}>
           <Animated.ScrollView
             showsVerticalScrollIndicator={false}
@@ -322,7 +333,7 @@ const HomeScreen = () => {
               <RefreshControl
                 refreshing={refreshing}
                 onRefresh={onRefresh}
-                tintColor={theme.text.secondary}
+                tintColor={theme.colors.text.secondary}
               />
             }
             onScroll={Animated.event(
@@ -335,13 +346,13 @@ const HomeScreen = () => {
             {/* Header */}
             <Animated.View style={[styles.header, { opacity: headerOpacity }]}>
               <View>
-                <Text style={[styles.headerTitle, { color: theme.text.primary }]}>
+                <Text style={[styles.headerTitle, { color: theme.colors.text.primary }]}>
                   Quit Tracker
                 </Text>
                 {/* Daily Status */}
                 <View style={styles.dailyStatus}>
                   <Text style={[styles.dailyStatusText, { 
-                    color: remainingToday === 0 ? theme.danger : theme.text.secondary 
+                    color: remainingToday === 0 ? theme.colors.danger : theme.colors.text.secondary 
                   }]}>
                     {remainingToday === 0 
                       ? 'Daily limit reached' 
@@ -352,9 +363,12 @@ const HomeScreen = () => {
               <TouchableOpacity onPress={toggleTheme} style={styles.themeButton}>
                 <View style={[
                   styles.themeButtonInner,
-                  { backgroundColor: theme.shadow.dark, opacity: 0.1 }
+                  { 
+                    backgroundColor: theme.colors.surface,
+                  },
+                  theme.shadow('small'),
                 ]}>
-                  <Text style={[styles.themeIcon, { opacity: 0.6 }]}>
+                  <Text style={[styles.themeIcon, { color: theme.colors.text.primary }]}>
                     {isDarkMode ? '◐' : '◑'}
                   </Text>
                 </View>
@@ -362,7 +376,7 @@ const HomeScreen = () => {
             </Animated.View>
 
             {/* Header Progress Bar */}
-            <View style={[styles.headerProgress, { backgroundColor: theme.shadow.dark, opacity: 0.1 }]}>
+            <View style={[styles.headerProgress, { backgroundColor: theme.colors.shadow, opacity: 0.1 }]}>
               <Animated.View
                 style={[
                   styles.headerProgressFill,
@@ -405,7 +419,7 @@ const HomeScreen = () => {
                   }
                 ]}>
                   <LinearGradient
-                    colors={[theme.success, '#2ECC71']}
+                    colors={[theme.colors.success, '#2ECC71']}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 0 }}
                     style={styles.streakGradient}
@@ -417,21 +431,21 @@ const HomeScreen = () => {
                 </Animated.View>
               )}
               
-              <Text style={[styles.todayLabel, { color: theme.text.secondary }]}>
+              <Text style={[styles.todayLabel, { color: theme.colors.text.secondary }]}>
                 TODAY
               </Text>
               <View style={styles.todayCountRow}>
-                <Animated.Text style={[styles.todayNumber, { color: theme.accent }]}>
+                <Animated.Text style={[styles.todayNumber, { color: theme.colors.accent }]}>
                   {displayCount}
                 </Animated.Text>
               </View>
-              <Text style={[styles.todayUnit, { color: theme.text.primary }]}>
+              <Text style={[styles.todayUnit, { color: theme.colors.text.primary }]}>
                 CIGARETTES
               </Text>
               
               {/* Reverse Progress Bar */}
               <View style={styles.progressContainer}>
-                <View style={[styles.progressBarBg, { backgroundColor: theme.shadow.dark, opacity: 0.15 }]}>
+                <View style={[styles.progressBarBg, { backgroundColor: theme.colors.shadow, opacity: 0.15 }]}>
                   <Animated.View 
                     style={[
                       styles.progressBarFill,
@@ -445,13 +459,13 @@ const HomeScreen = () => {
                     ]}
                   />
                 </View>
-                <Text style={[styles.progressText, { color: theme.text.tertiary }]}>
+                <Text style={[styles.progressText, { color: theme.colors.text.tertiary }]}>
                   {remainingToday} remaining of {dailyLimit} daily limit
                 </Text>
               </View>
               
               {/* Motivational message */}
-              <Text style={[styles.motivationalText, { color: theme.text.secondary }]}>
+              <Text style={[styles.motivationalText, { color: theme.colors.text.secondary }]}>
                 {getMotivationalMessage()}
               </Text>
             </Animated.View>
@@ -466,35 +480,21 @@ const HomeScreen = () => {
             {/* Time Since Last */}
             <TimeSinceLastSmoke lastSmokeTime={lastSmokeTime} theme={theme} />
 
-            {/* Stats Row - No cards, just text */}
+            {/* Stats Cards */}
             <View style={styles.statsContainer}>
-              <View style={styles.statItem}>
-                <Text style={[styles.statLabel, { color: theme.text.tertiary }]}>
-                  TODAY'S LIMIT
-                </Text>
-                <Text style={[styles.statValue, { color: theme.text.primary }]}>
-                  {remainingToday}
-                </Text>
-                <Text style={[styles.statSubtext, { color: theme.text.secondary }]}>
-                  left to smoke
-                </Text>
-              </View>
-
-              <View style={styles.statDivider}>
-                <View style={[styles.dividerLine, { backgroundColor: theme.text.tertiary, opacity: 0.2 }]} />
-              </View>
-
-              <View style={styles.statItem}>
-                <Text style={[styles.statLabel, { color: theme.text.tertiary }]}>
-                  THIS WEEK
-                </Text>
-                <Text style={[styles.statValue, { color: theme.text.primary }]}>
-                  {weeklyStats.average}
-                </Text>
-                <Text style={[styles.statSubtext, { color: theme.text.secondary }]}>
-                  daily average
-                </Text>
-              </View>
+              <StatCard
+                title="Today's Limit"
+                value={remainingToday.toString()}
+                subtitle="left to smoke"
+                highlight={remainingToday === 0}
+                theme={theme}
+              />
+              <StatCard
+                title="This Week"
+                value={weeklyStats.average}
+                subtitle="daily average"
+                theme={theme}
+              />
             </View>
 
             {/* Daily Limit Setting - Minimalistic */}
@@ -508,25 +508,31 @@ const HomeScreen = () => {
             >
               <View style={styles.limitContent}>
                 <View>
-                  <Text style={[styles.limitLabel, { color: theme.text.tertiary }]}>
+                  <Text style={[styles.limitLabel, { color: theme.colors.text.tertiary }]}>
                     DAILY LIMIT
                   </Text>
-                  <Text style={[styles.limitValue, { color: theme.text.primary }]}>
+                  <Text style={[styles.limitValue, { color: theme.colors.text.primary }]}>
                     {dailyLimit}
                   </Text>
                 </View>
                 <View style={[styles.limitArrow, { opacity: 0.3 }]}>
-                  <Text style={[styles.limitArrowText, { color: theme.text.secondary }]}>
+                  <Text style={[styles.limitArrowText, { color: theme.colors.text.secondary }]}>
                     ›
                   </Text>
                 </View>
               </View>
-              <View style={[styles.limitUnderline, { backgroundColor: theme.accent, opacity: 0.3 }]} />
+              <View style={[styles.limitUnderline, { backgroundColor: theme.colors.accent, opacity: 0.3 }]} />
             </TouchableOpacity>
 
             {/* Weekly Chart */}
-            <View style={styles.chartSection}>
-              <Text style={[styles.chartTitle, { color: theme.text.primary }]}>
+            <View style={[
+              styles.chartSection,
+              {
+                backgroundColor: theme.colors.surface,
+              },
+              theme.shadow('medium'),
+            ]}>
+              <Text style={[styles.chartTitle, { color: theme.colors.text.primary }]}>
                 Weekly Overview
               </Text>
               <WeeklyChart smokingData={smokingData} theme={theme} />
@@ -546,25 +552,24 @@ const HomeScreen = () => {
                   }]
                 }
               ]}>
-                <View style={[styles.quoteCard, getShadowStyle(theme, 'concave', 0.4)]}>
-                  <LinearGradient
-                    colors={isDarkMode ? ['#2C2D3A', '#1F2029'] : ['#FFFFFF', '#FAFAFA']}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 0, y: 1 }}
-                    style={styles.quoteGradient}
-                  >
-                    <View style={styles.quoteHeader}>
-                      <View style={[styles.quoteMark, { backgroundColor: theme.accent }]}>
-                        <Text style={styles.quoteMarkText}>"</Text>
-                      </View>
+                <View style={[
+                  styles.quoteCard,
+                  {
+                    backgroundColor: theme.colors.surface,
+                  },
+                  theme.shadow('medium'),
+                ]}>
+                  <View style={styles.quoteHeader}>
+                    <View style={[styles.quoteMark, { backgroundColor: theme.colors.accent }]}>
+                      <Text style={styles.quoteMarkText}>"</Text>
                     </View>
-                    <Text style={[styles.quoteText, { color: theme.text.primary }]}>
-                      {getDailyLimitQuote().quote}
-                    </Text>
-                    <Text style={[styles.quoteAuthor, { color: theme.text.secondary }]}>
-                      — {getDailyLimitQuote().author}
-                    </Text>
-                  </LinearGradient>
+                  </View>
+                  <Text style={[styles.quoteText, { color: theme.colors.text.primary }]}>
+                    {getDailyLimitQuote().quote}
+                  </Text>
+                  <Text style={[styles.quoteAuthor, { color: theme.colors.text.secondary }]}>
+                    — {getDailyLimitQuote().author}
+                  </Text>
                 </View>
               </Animated.View>
             )}

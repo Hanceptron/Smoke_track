@@ -5,6 +5,7 @@ const TimeSinceLastSmoke = ({ lastSmokeTime, theme }) => {
   const [timeValue, setTimeValue] = useState('');
   const [timeUnit, setTimeUnit] = useState('');
   const fadeAnim = useRef(new Animated.Value(0)).current;
+  const styles = createStyles(theme);
 
   useEffect(() => {
     const updateTime = () => {
@@ -69,7 +70,6 @@ const TimeSinceLastSmoke = ({ lastSmokeTime, theme }) => {
 
   return (
     <Animated.View style={[
-      styles.container,
       { 
         opacity: fadeAnim,
         transform: [{
@@ -80,57 +80,68 @@ const TimeSinceLastSmoke = ({ lastSmokeTime, theme }) => {
         }]
       }
     ]}>
-      <Text style={[styles.mainText, { color: theme.text.secondary }]}>
-        {lastSmokeTime ? 'You smoked a cigarette ' : ''}
-        {timeValue === 'just now' ? (
-          <Text style={[styles.timeValue, { color: theme.accent }]}>{timeValue}</Text>
-        ) : timeValue === 'No cigarettes' ? (
-          <>
-            <Text style={[styles.noSmoke, { color: theme.success }]}>{timeValue}</Text>
-            <Text> {timeUnit}</Text>
-          </>
-        ) : (
-          <>
-            <Text style={[styles.timeValue, { color: theme.accent }]}>{timeValue}</Text>
-            <Text> {timeUnit}</Text>
-          </>
-        )}
-      </Text>
-      
-      <Text style={[styles.motivation, { color: theme.text.tertiary }]}>
-        {getMessage()}
-      </Text>
-      
-      <View style={[styles.divider, { backgroundColor: theme.text.tertiary, opacity: 0.2 }]} />
+      <View style={[
+        styles.container,
+        {
+          backgroundColor: theme.colors.surface,
+        },
+        theme.shadow('medium'),
+      ]}>
+        <Text style={[styles.mainText, { color: theme.colors.text.secondary }]}>
+          {lastSmokeTime ? 'You smoked a cigarette ' : ''}
+          {timeValue === 'just now' ? (
+            <Text style={[styles.timeValue, { color: theme.colors.accent }]}>{timeValue}</Text>
+          ) : timeValue === 'No cigarettes' ? (
+            <>
+              <Text style={[styles.noSmoke, { color: theme.colors.success }]}>{timeValue}</Text>
+              <Text> {timeUnit}</Text>
+            </>
+          ) : (
+            <>
+              <Text style={[styles.timeValue, { color: theme.colors.accent }]}>{timeValue}</Text>
+              <Text> {timeUnit}</Text>
+            </>
+          )}
+        </Text>
+        
+        <Text style={[styles.motivation, { color: theme.colors.text.tertiary }]}>
+          {getMessage()}
+        </Text>
+        
+        <View style={[styles.divider, { backgroundColor: theme.colors.text.tertiary, opacity: 0.2 }]} />
+      </View>
     </Animated.View>
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (theme) => StyleSheet.create({
   container: {
     alignItems: 'center',
-    paddingVertical: 20,
-    paddingHorizontal: 20,
+    paddingVertical: theme.spacing.lg,
+    paddingHorizontal: theme.spacing.lg,
+    borderRadius: theme.borderRadius.lg,
+    marginHorizontal: theme.spacing.base,
+    marginVertical: theme.spacing.sm,
   },
   mainText: {
-    fontSize: 18,
-    fontWeight: '500',
+    fontSize: theme.fontSizes.lg,
+    fontWeight: theme.fontWeights.medium,
     textAlign: 'center',
-    marginBottom: 8,
+    marginBottom: theme.spacing.sm,
   },
   timeValue: {
-    fontWeight: '700',
-    fontSize: 20,
+    fontWeight: theme.fontWeights.bold,
+    fontSize: theme.fontSizes.xl,
   },
   noSmoke: {
-    fontWeight: '700',
-    fontSize: 20,
+    fontWeight: theme.fontWeights.bold,
+    fontSize: theme.fontSizes.xl,
   },
   motivation: {
-    fontSize: 14,
-    fontWeight: '500',
+    fontSize: theme.fontSizes.sm,
+    fontWeight: theme.fontWeights.medium,
     opacity: 0.7,
-    marginBottom: 16,
+    marginBottom: theme.spacing.base,
   },
   divider: {
     height: 1,
